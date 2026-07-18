@@ -1,3 +1,4 @@
+import localforage from 'localforage';
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -80,20 +81,39 @@ export default function App() {
     localStorage.setItem('ios_store_all_users', JSON.stringify(allUsers));
   }, [allUsers]);
 
-  const [apps, setApps] = useState<AppEntry[]>(() => {
-    const saved = localStorage.getItem('ios_store_apps');
-    if (!saved) return INITIAL_APPS;
-    const parsed = JSON.parse(saved);
-    const unique = [];
-    const ids = new Set();
-    for (const app of parsed) {
-      if (!ids.has(app.id)) {
-        ids.add(app.id);
-        unique.push(app);
+  const [apps, setApps] = useState<AppEntry[]>(INITIAL_APPS);
+  const [isAppsLoaded, setIsAppsLoaded] = useState(false);
+
+  useEffect(() => {
+    localforage.getItem<AppEntry[]>('ios_store_apps').then((saved) => {
+      if (saved) {
+        const unique = [];
+        const ids = new Set();
+        for (const app of saved) {
+          if (!ids.has(app.id)) {
+            ids.add(app.id);
+            unique.push(app);
+          }
+        }
+        setApps(unique);
+      } else {
+        const localStorageSaved = localStorage.getItem('ios_store_apps');
+        if (localStorageSaved) {
+           const parsed = JSON.parse(localStorageSaved);
+           const unique = [];
+           const ids = new Set();
+           for (const app of parsed) {
+             if (!ids.has(app.id)) {
+               ids.add(app.id);
+               unique.push(app);
+             }
+           }
+           setApps(unique);
+        }
       }
-    }
-    return unique;
-  });
+      setIsAppsLoaded(true);
+    });
+  }, []);
 
   const [notificationsEnabled, setNotificationsEnabled] = useState(() => {
     return localStorage.getItem('notifications_enabled') === 'true';
@@ -141,8 +161,16 @@ export default function App() {
   };
 
   useEffect(() => {
-    localStorage.setItem('ios_store_apps', JSON.stringify(apps));
-  }, [apps]);
+    if (isAppsLoaded) {
+      localforage.setItem('ios_store_apps', apps);
+      // also save to localStorage for fallback, but catch quota errors
+      try {
+        localStorage.setItem('ios_store_apps', JSON.stringify(apps));
+      } catch (e) {
+        console.warn('localStorage quota exceeded, relying on localforage');
+      }
+    }
+  }, [apps, isAppsLoaded]);
 
   const [activeTab, setActiveTab] = useState<'Today' | 'Games' | 'Apps' | 'Search' | 'Admin'>('Today');
   const [viewingAppId, setViewingAppId] = useState<string | null>(null);
@@ -152,7 +180,14 @@ export default function App() {
   const [passwordInput, setPasswordInput] = useState('');
   const [passwordPrompt, setPasswordPrompt] = useState<{ type: 'funds' | 'purchase', amount?: number, appId?: string } | null>(null);
   const [isDownloading, setIsDownloading] = useState<string | null>(null);
-  const [downloadedApps, setDownloadedApps] = useState<Set<string>>(new Set());
+  const [downloadedApps, setDownloadedApps] = useState<Set<string>>(() => {
+    const saved = localStorage.getItem('ios_store_downloaded_apps');
+    return saved ? new Set(JSON.parse(saved)) : new Set();
+  });
+
+  useEffect(() => {
+    localStorage.setItem('ios_store_downloaded_apps', JSON.stringify(Array.from(downloadedApps)));
+  }, [downloadedApps]);
   const [purchaseLibrary, setPurchaseLibrary] = useState<Set<string>>(() => {
     const saved = localStorage.getItem('ios_store_purchase_library');
     return saved ? new Set(JSON.parse(saved)) : new Set();
@@ -218,7 +253,14 @@ export default function App() {
     setConfirmingAppId(id);
   };
 
-  const [downloadStatus, setDownloadStatus] = useState<Record<string, 'idle' | 'second' | 'finish' | 'open' | 'save'>>({});
+  const [downloadStatus, setDownloadStatus] = useState<Record<string, 'idle' | 'second' | 'finish' | 'open' | 'save'>>(() => {
+    const saved = localStorage.getItem('ios_store_download_status');
+    return saved ? JSON.parse(saved) : {};
+  });
+
+  useEffect(() => {
+    localStorage.setItem('ios_store_download_status', JSON.stringify(downloadStatus));
+  }, [downloadStatus]);
 
   const executeDownload = (id: string) => {
     const app = apps.find(a => a.id === id);
@@ -405,6 +447,7 @@ export default function App() {
               toggleNotifications={toggleNotifications}
               darkMode={darkMode}
               toggleDarkMode={toggleDarkMode}
+              allUsers={allUsers}
               currentUser={currentUser}
               setCurrentUser={setCurrentUser}
             />
@@ -575,6 +618,7 @@ function AccountModal({
   toggleNotifications,
   darkMode,
   toggleDarkMode,
+  allUsers,
   currentUser,
   setCurrentUser
 }: { 
@@ -591,6 +635,7 @@ function AccountModal({
   toggleNotifications: () => void,
   darkMode: boolean,
   toggleDarkMode: () => void,
+  allUsers: any[],
   currentUser: {name: string, email: string, password?: string, phone?: string} | null,
   setCurrentUser: (user: {name: string, email: string, password?: string, phone?: string} | null) => void
 }) {
@@ -658,8 +703,12 @@ function AccountModal({
                   e.preventDefault();
                   const fd = new FormData(e.currentTarget);
                   const email = fd.get('email') as string;
-                  if (email) {
-                    setCurrentUser({ name: email.split('@')[0], email });
+                  const password = fd.get('password') as string;
+                  const user = allUsers.find(u => u.email === email && (u.password === password || !u.password));
+                  if (user) {
+                    setCurrentUser(user);
+                  } else {
+                    alert('Invalid Apple ID or Password.');
                   }
                 }}
               >
@@ -673,7 +722,8 @@ function AccountModal({
                 <input 
                   name="password"
                   type="password" 
-                  placeholder="Password" 
+                  placeholder="Password"
+                  required 
                   className="w-full bg-white dark:bg-zinc-900 p-4 rounded-xl border border-gray-100 dark:border-white/5 font-bold focus:ring-2 focus:ring-blue-500 transition-all outline-none"
                 />
                 <button 
@@ -2615,8 +2665,10 @@ function AdminPage({ isAuthenticated, password, setPassword, onLogin, onAdd, onU
               if (editingUserId) {
                 onUpdateUser({ ...userForm, id: editingUserId });
                 setEditingUserId(null);
+                alert('User updated successfully!');
               } else {
                 onAddUser({ ...userForm, id: Date.now().toString() });
+                alert('User saved successfully!');
               }
               setUserForm({ name: '', email: '', password: '', phone: '' });
             }} className="bg-white p-8 rounded-3xl space-y-8 border border-gray-100 shadow-xl shadow-black/5">
@@ -2631,7 +2683,7 @@ function AdminPage({ isAuthenticated, password, setPassword, onLogin, onAdd, onU
                 <input placeholder="Password" type="password" className="w-full bg-gray-50 p-4 rounded-2xl border border-gray-100 focus:bg-white focus:ring-2 focus:ring-blue-500/20 outline-none text-sm font-medium" value={userForm.password || ''} onChange={e => setUserForm({...userForm, password: e.target.value})} />
               </div>
               <button type="submit" className="w-full bg-blue-600 text-white py-6 rounded-3xl font-black text-sm uppercase tracking-[0.2em] shadow-xl shadow-blue-600/30 active:scale-[0.99] transition-all flex items-center justify-center gap-3">
-                {editingUserId ? 'UPDATE USER' : 'ADD USER'}
+                {editingUserId ? 'UPDATE & SAVE' : 'ADD & SAVE USER'}
               </button>
             </form>
 
