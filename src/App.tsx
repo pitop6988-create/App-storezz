@@ -61,9 +61,19 @@ import { INITIAL_APPS } from './constants';
 // --- Main App ---
 
 export default function App() {
-  const [allUsers, setAllUsers] = useState<{id: string, name: string, email: string}[]>(() => {
+  const [allUsers, setAllUsers] = useState<{id: string, name: string, email: string, password?: string, phone?: string}[]>(() => {
     const saved = localStorage.getItem('ios_store_all_users');
-    return saved ? JSON.parse(saved) : [{ id: '1', name: 'Admin', email: 'admin@apple.com' }];
+    if (!saved) return [{ id: '1', name: 'Admin', email: 'admin@apple.com' }];
+    const parsed = JSON.parse(saved);
+    const unique = [];
+    const ids = new Set();
+    for (const user of parsed) {
+      if (!ids.has(user.id)) {
+        ids.add(user.id);
+        unique.push(user);
+      }
+    }
+    return unique;
   });
 
   useEffect(() => {
@@ -72,7 +82,17 @@ export default function App() {
 
   const [apps, setApps] = useState<AppEntry[]>(() => {
     const saved = localStorage.getItem('ios_store_apps');
-    return saved ? JSON.parse(saved) : INITIAL_APPS;
+    if (!saved) return INITIAL_APPS;
+    const parsed = JSON.parse(saved);
+    const unique = [];
+    const ids = new Set();
+    for (const app of parsed) {
+      if (!ids.has(app.id)) {
+        ids.add(app.id);
+        unique.push(app);
+      }
+    }
+    return unique;
   });
 
   const [notificationsEnabled, setNotificationsEnabled] = useState(() => {
@@ -146,7 +166,7 @@ export default function App() {
     localStorage.setItem('ios_store_password', storePassword);
   }, [storePassword]);
 
-  const [currentUser, setCurrentUser] = useState<{name: string, email: string} | null>(() => {
+  const [currentUser, setCurrentUser] = useState<{name: string, email: string, password?: string, phone?: string} | null>(() => {
     const saved = localStorage.getItem('ios_store_current_user');
     return saved ? JSON.parse(saved) : null;
   });
@@ -571,8 +591,8 @@ function AccountModal({
   toggleNotifications: () => void,
   darkMode: boolean,
   toggleDarkMode: () => void,
-  currentUser: {name: string, email: string} | null,
-  setCurrentUser: (user: {name: string, email: string} | null) => void
+  currentUser: {name: string, email: string, password?: string, phone?: string} | null,
+  setCurrentUser: (user: {name: string, email: string, password?: string, phone?: string} | null) => void
 }) {
   const [view, setView] = useState<'main' | 'country' | 'funds' | 'languages' | 'purchased' | 'history'>('main');
   const [purchasedFilter, setPurchasedFilter] = useState<'all' | 'not_on_iphone' | 'games' | 'apps'>('all');
@@ -673,13 +693,11 @@ function AccountModal({
               className="px-6 space-y-8 mt-6"
             >
               {/* User Profile */}
-              <div className="bg-white dark:bg-zinc-900 p-6 rounded-3xl border border-gray-100 dark:border-white/5 flex items-center gap-4 shadow-sm">
-                <div className="w-16 h-16 rounded-full bg-gray-100 dark:bg-zinc-800 overflow-hidden ring-4 ring-gray-50 dark:ring-white/5">
-                  <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${currentUser.name}`} alt="User" />
-                </div>
+              <div className="bg-white dark:bg-zinc-900 p-6 rounded-3xl border border-gray-100 dark:border-white/5 flex flex-col gap-2 shadow-sm">
                 <div>
                   <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 capitalize">{currentUser.name}</h3>
-                  <p className="text-gray-400 text-sm">{currentUser.email}</p>
+                  <p className="text-gray-500 font-medium text-sm">{currentUser.email}</p>
+                  {currentUser.phone && <p className="text-gray-400 text-sm mt-1">{currentUser.phone}</p>}
                 </div>
               </div>
 
@@ -1203,7 +1221,7 @@ function TodayPage({
   onDownload: (id: string) => void, 
   isDownloading: string | null, 
   downloadStatus: Record<string, string>,
-  currentUser: {name: string, email: string} | null
+  currentUser: {name: string, email: string, password?: string, phone?: string} | null
 }) {
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
   
@@ -1216,10 +1234,10 @@ function TodayPage({
         </div>
         <div 
           onClick={onAccountClick}
-          className="w-10 h-10 rounded-full bg-gray-100 dark:bg-zinc-800 overflow-hidden shadow-sm ring-4 ring-gray-50 dark:ring-white/5 cursor-pointer active:scale-95 transition-all flex items-center justify-center text-gray-400"
+          className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/30 overflow-hidden shadow-sm ring-4 ring-gray-50 dark:ring-white/5 cursor-pointer active:scale-95 transition-all flex items-center justify-center text-blue-600 dark:text-blue-400 font-bold text-lg uppercase"
         >
           {currentUser ? (
-            <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${currentUser.name}`} alt="User Profile" />
+            currentUser.name.charAt(0)
           ) : (
             <User size={24} />
           )}
@@ -1329,7 +1347,7 @@ function ListPage({
   downloadedApps: Set<string>, 
   purchaseLibrary: Set<string>,
   downloadStatus: Record<string, string>,
-  currentUser: {name: string, email: string} | null
+  currentUser: {name: string, email: string, password?: string, phone?: string} | null
 }) {
   const featured = apps.slice(0, 3);
   const topCharts = apps.slice(0, 5);
@@ -1344,10 +1362,10 @@ function ListPage({
         <h1 className="text-3xl font-black text-gray-900 dark:text-gray-100 italic tracking-tighter">{title}</h1>
         <div 
           onClick={onAccountClick}
-          className="w-8 h-8 rounded-full bg-gray-100 dark:bg-zinc-800 overflow-hidden shadow-sm ring-2 ring-gray-50 dark:ring-white/5 cursor-pointer active:scale-95 transition-all flex items-center justify-center text-gray-400"
+          className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 overflow-hidden shadow-sm ring-2 ring-gray-50 dark:ring-white/5 cursor-pointer active:scale-95 transition-all flex items-center justify-center text-blue-600 dark:text-blue-400 font-bold text-sm uppercase"
         >
           {currentUser ? (
-            <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${currentUser.name}`} alt="User" />
+            currentUser.name.charAt(0)
           ) : (
             <User size={20} />
           )}
@@ -1989,7 +2007,7 @@ function AdminPage({ isAuthenticated, password, setPassword, onLogin, onAdd, onU
   const [adminTab, setAdminTab] = useState<'apps' | 'users'>('apps');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
-  const [userForm, setUserForm] = useState({ name: '', email: '' });
+  const [userForm, setUserForm] = useState({ name: '', email: '', password: '', phone: '' });
   const [form, setForm] = useState<Partial<AppEntry>>({
     category: 'Game',
     rating: 4.5,
@@ -2112,7 +2130,7 @@ function AdminPage({ isAuthenticated, password, setPassword, onLogin, onAdd, onU
       setEditingId(null);
       alert('Updated successfully!');
     } else {
-      const newId = form.id || (apps.length + 1).toString();
+      const newId = form.id || Date.now().toString();
       onAdd({
         ...form,
         id: newId,
@@ -2237,7 +2255,12 @@ function AdminPage({ isAuthenticated, password, setPassword, onLogin, onAdd, onU
                   <input placeholder="Price (Free/$0.99)" className="bg-gray-50 p-4 rounded-2xl border border-gray-100 focus:bg-white focus:ring-2 focus:ring-blue-500/20 outline-none text-sm font-medium" value={form.price || ''} onChange={e => setForm({...form, price: e.target.value})} />
                   <input placeholder="Size (e.g. 150 MB)" className="bg-gray-50 p-4 rounded-2xl border border-gray-100 focus:bg-white focus:ring-2 focus:ring-blue-500/20 outline-none text-sm font-medium" value={form.size || ''} onChange={e => setForm({...form, size: e.target.value})} />
                   <input placeholder="Downloads (e.g. 1.2M)" className="bg-gray-50 p-4 rounded-2xl border border-gray-100 focus:bg-white focus:ring-2 focus:ring-blue-500/20 outline-none text-sm font-medium" value={form.downloads || ''} onChange={e => setForm({...form, downloads: e.target.value})} />
-                  <input placeholder="Creator Apple ID (e.g. apple@example.com)" className="bg-gray-50 p-4 rounded-2xl border border-gray-100 focus:bg-white focus:ring-2 focus:ring-blue-500/20 outline-none text-sm font-medium col-span-2" value={form.creatorAppleId || ''} onChange={e => setForm({...form, creatorAppleId: e.target.value})} />
+                  <select className="bg-gray-50 p-4 rounded-2xl border border-gray-100 focus:bg-white focus:ring-2 focus:ring-blue-500/20 outline-none text-sm font-medium col-span-2" value={form.creatorAppleId || ''} onChange={e => setForm({...form, creatorAppleId: e.target.value})}>
+                    <option value="">Select Creator Apple ID...</option>
+                    {allUsers.map((u: any) => (
+                      <option key={u.id} value={u.email}>{u.name} ({u.email})</option>
+                    ))}
+                  </select>
                   <input placeholder="Compatibility (e.g. Works on this iPhone)" className="bg-gray-50 p-4 rounded-2xl border border-gray-100 focus:bg-white focus:ring-2 focus:ring-blue-500/20 outline-none text-sm font-medium col-span-2" value={form.compatibility || ''} onChange={e => setForm({...form, compatibility: e.target.value})} />
                 </div>
               </div>
@@ -2595,15 +2618,17 @@ function AdminPage({ isAuthenticated, password, setPassword, onLogin, onAdd, onU
               } else {
                 onAddUser({ ...userForm, id: Date.now().toString() });
               }
-              setUserForm({ name: '', email: '' });
+              setUserForm({ name: '', email: '', password: '', phone: '' });
             }} className="bg-white p-8 rounded-3xl space-y-8 border border-gray-100 shadow-xl shadow-black/5">
               <h3 className="font-black text-xl flex items-center gap-3 text-gray-900">
                 {editingUserId ? <User className="text-blue-500" size={24} /> : <UserPlus className="text-blue-500" size={24} />}
                 {editingUserId ? 'Edit User' : 'Add New User'}
               </h3>
               <div className="space-y-4">
-                <input placeholder="Name" required className="w-full bg-gray-50 p-4 rounded-2xl border border-gray-100 focus:bg-white focus:ring-2 focus:ring-blue-500/20 outline-none text-sm font-medium" value={userForm.name} onChange={e => setUserForm({...userForm, name: e.target.value})} />
-                <input placeholder="Apple ID (Email)" type="email" required className="w-full bg-gray-50 p-4 rounded-2xl border border-gray-100 focus:bg-white focus:ring-2 focus:ring-blue-500/20 outline-none text-sm font-medium" value={userForm.email} onChange={e => setUserForm({...userForm, email: e.target.value})} />
+                <input placeholder="Name" required className="w-full bg-gray-50 p-4 rounded-2xl border border-gray-100 focus:bg-white focus:ring-2 focus:ring-blue-500/20 outline-none text-sm font-medium" value={userForm.name || ''} onChange={e => setUserForm({...userForm, name: e.target.value})} />
+                <input placeholder="Apple ID (Email)" type="email" required className="w-full bg-gray-50 p-4 rounded-2xl border border-gray-100 focus:bg-white focus:ring-2 focus:ring-blue-500/20 outline-none text-sm font-medium" value={userForm.email || ''} onChange={e => setUserForm({...userForm, email: e.target.value})} />
+                <input placeholder="Phone Number" type="tel" className="w-full bg-gray-50 p-4 rounded-2xl border border-gray-100 focus:bg-white focus:ring-2 focus:ring-blue-500/20 outline-none text-sm font-medium" value={userForm.phone || ''} onChange={e => setUserForm({...userForm, phone: e.target.value})} />
+                <input placeholder="Password" type="password" className="w-full bg-gray-50 p-4 rounded-2xl border border-gray-100 focus:bg-white focus:ring-2 focus:ring-blue-500/20 outline-none text-sm font-medium" value={userForm.password || ''} onChange={e => setUserForm({...userForm, password: e.target.value})} />
               </div>
               <button type="submit" className="w-full bg-blue-600 text-white py-6 rounded-3xl font-black text-sm uppercase tracking-[0.2em] shadow-xl shadow-blue-600/30 active:scale-[0.99] transition-all flex items-center justify-center gap-3">
                 {editingUserId ? 'UPDATE USER' : 'ADD USER'}
