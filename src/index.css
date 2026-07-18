@@ -1,0 +1,31 @@
+@import "tailwindcss";
+
+@theme {
+  --color-app-bg: #ffffff;
+  --color-app-text: #000000;
+  --color-app-card: #f9f9f9;
+}
+
+.dark {
+  --color-app-bg: #000000;
+  --color-app-text: #ffffff;
+  --color-app-card: #1c1c1e;
+}
+
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    10%, 30%, 50%, 70%, 90% { transform: translateX(-4px); }
+    20%, 40%, 60%, 80% { transform: translateX(4px); }
+  }
+  .animate-shake {
+    animation: shake 0.4s cubic-bezier(.36,.07,.19,.97) both;
+  }
+}
