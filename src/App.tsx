@@ -50,7 +50,8 @@ import {
   Mic,
   Joystick,
   Layers,
-  LayoutTemplate
+  LayoutTemplate,
+  UserPlus
 } from 'lucide-react';
 import { AppEntry, AppCategory } from './types';
 import { INITIAL_APPS } from './constants';
@@ -60,6 +61,15 @@ import { INITIAL_APPS } from './constants';
 // --- Main App ---
 
 export default function App() {
+  const [allUsers, setAllUsers] = useState<{id: string, name: string, email: string}[]>(() => {
+    const saved = localStorage.getItem('ios_store_all_users');
+    return saved ? JSON.parse(saved) : [{ id: '1', name: 'Admin', email: 'admin@apple.com' }];
+  });
+
+  useEffect(() => {
+    localStorage.setItem('ios_store_all_users', JSON.stringify(allUsers));
+  }, [allUsers]);
+
   const [apps, setApps] = useState<AppEntry[]>(() => {
     const saved = localStorage.getItem('ios_store_apps');
     return saved ? JSON.parse(saved) : INITIAL_APPS;
@@ -328,6 +338,10 @@ export default function App() {
           onUpdate={handleUpdateApp}
           apps={apps}
           onDelete={handleDeleteApp}
+          allUsers={allUsers}
+          onAddUser={(user) => setAllUsers([...allUsers, user])}
+          onUpdateUser={(user) => setAllUsers(allUsers.map(u => u.id === user.id ? user : u))}
+          onDeleteUser={(id) => setAllUsers(allUsers.filter(u => u.id !== id))}
         />
       );
     }
@@ -1545,7 +1559,12 @@ function AppDetail({
       <div className="pt-8 px-6 space-y-8 pb-32">
         {/* Header Section */}
         <div className="flex gap-5">
-          <img src={app.iconUrl || 'https://via.placeholder.com/150'} className="w-28 h-28 rounded-[22%] shadow-2xl shadow-black/10 border border-gray-50 dark:border-white/5" referrerPolicy="no-referrer" />
+          <img 
+            src={app.iconUrl || 'https://via.placeholder.com/150'} 
+            className="w-28 h-28 rounded-[22%] shadow-2xl shadow-black/10 border border-gray-50 dark:border-white/5 cursor-pointer" 
+            referrerPolicy="no-referrer" 
+            onClick={() => alert(`App ID: ${app.id}\nCreator App ID: ${app.creatorAppleId || 'Not set'}`)}
+          />
           <div className="flex-1 flex flex-col justify-between py-1">
             <div className="space-y-1">
               <h1 className="text-2xl font-bold leading-tight tracking-tight text-gray-900 dark:text-gray-100">{app.name}</h1>
@@ -1966,8 +1985,11 @@ function SearchPage({
   );
 }
 
-function AdminPage({ isAuthenticated, password, setPassword, onLogin, onAdd, onUpdate, apps, onDelete }: any) {
+function AdminPage({ isAuthenticated, password, setPassword, onLogin, onAdd, onUpdate, apps, onDelete, allUsers = [], onAddUser, onUpdateUser, onDeleteUser }: any) {
+  const [adminTab, setAdminTab] = useState<'apps' | 'users'>('apps');
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingUserId, setEditingUserId] = useState<string | null>(null);
+  const [userForm, setUserForm] = useState({ name: '', email: '' });
   const [form, setForm] = useState<Partial<AppEntry>>({
     category: 'Game',
     rating: 4.5,
@@ -2090,7 +2112,7 @@ function AdminPage({ isAuthenticated, password, setPassword, onLogin, onAdd, onU
       setEditingId(null);
       alert('Updated successfully!');
     } else {
-      const newId = (apps.length + 1).toString();
+      const newId = form.id || (apps.length + 1).toString();
       onAdd({
         ...form,
         id: newId,
@@ -2130,16 +2152,33 @@ function AdminPage({ isAuthenticated, password, setPassword, onLogin, onAdd, onU
           <button onClick={() => window.location.reload()} className="text-[12px] text-gray-400 font-bold uppercase">Log out</button>
        </div>
 
-       <input 
-        type="file" 
-        ref={fileInputRef} 
-        onChange={handleFileChange} 
-        className="hidden" 
-        accept={uploadType === 'apk' ? '.apk,application/vnd.android.package-archive' : 'image/*'} 
-      />
+       <div className="flex space-x-4 border-b border-gray-100 pb-2">
+         <button 
+           onClick={() => setAdminTab('apps')} 
+           className={`pb-2 px-2 font-bold ${adminTab === 'apps' ? 'text-blue-500 border-b-2 border-blue-500' : 'text-gray-400'}`}
+         >
+           Apps
+         </button>
+         <button 
+           onClick={() => setAdminTab('users')} 
+           className={`pb-2 px-2 font-bold ${adminTab === 'users' ? 'text-blue-500 border-b-2 border-blue-500' : 'text-gray-400'}`}
+         >
+           Users
+         </button>
+       </div>
 
-       {/* Add Form */}
-       <form onSubmit={handleSubmit} className="bg-white p-8 rounded-3xl space-y-8 border border-gray-100 shadow-xl shadow-black/5">
+       {adminTab === 'apps' ? (
+         <>
+           <input 
+            type="file" 
+            ref={fileInputRef} 
+            onChange={handleFileChange} 
+            className="hidden" 
+            accept={uploadType === 'apk' ? '.apk,application/vnd.android.package-archive' : 'image/*'} 
+          />
+
+           {/* Add Form */}
+           <form onSubmit={handleSubmit} className="bg-white p-8 rounded-3xl space-y-8 border border-gray-100 shadow-xl shadow-black/5">
           <div className="flex justify-between items-center border-b border-gray-50 pb-4">
             <h3 className="font-black text-xl flex items-center gap-3 text-gray-900">
               {editingId ? <Smartphone className="text-blue-500" size={24} /> : <PlusCircle className="text-blue-500" size={24} />} 
@@ -2161,6 +2200,7 @@ function AdminPage({ isAuthenticated, password, setPassword, onLogin, onAdd, onU
               <div className="space-y-1">
                 <p className="text-[10px] font-bold text-gray-400 uppercase ml-1">General Info</p>
                 <div className="space-y-3">
+                  <input placeholder="App ID (e.g. com.example.app)" className="w-full bg-gray-50 p-4 rounded-2xl border border-gray-100 focus:bg-white focus:ring-2 focus:ring-blue-500/20 transition-all outline-none" value={form.id || ''} onChange={e => setForm({...form, id: e.target.value})} />
                   <input placeholder="App Name" className="w-full bg-gray-50 p-4 rounded-2xl border border-gray-100 focus:bg-white focus:ring-2 focus:ring-blue-500/20 transition-all outline-none" value={form.name || ''} onChange={e => setForm({...form, name: e.target.value})} />
                   <input placeholder="Subtitle (social, games, etc.)" className="w-full bg-gray-50 p-4 rounded-2xl border border-gray-100 focus:bg-white focus:ring-2 focus:ring-blue-500/20 transition-all outline-none" value={form.subtitle || ''} onChange={e => setForm({...form, subtitle: e.target.value})} />
                 </div>
@@ -2543,6 +2583,60 @@ function AdminPage({ isAuthenticated, password, setPassword, onLogin, onAdd, onU
              ))}
           </div>
        </div>
+       </>
+       ) : (
+         <div className="space-y-8">
+            {/* User Form */}
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              if (editingUserId) {
+                onUpdateUser({ ...userForm, id: editingUserId });
+                setEditingUserId(null);
+              } else {
+                onAddUser({ ...userForm, id: Date.now().toString() });
+              }
+              setUserForm({ name: '', email: '' });
+            }} className="bg-white p-8 rounded-3xl space-y-8 border border-gray-100 shadow-xl shadow-black/5">
+              <h3 className="font-black text-xl flex items-center gap-3 text-gray-900">
+                {editingUserId ? <User className="text-blue-500" size={24} /> : <UserPlus className="text-blue-500" size={24} />}
+                {editingUserId ? 'Edit User' : 'Add New User'}
+              </h3>
+              <div className="space-y-4">
+                <input placeholder="Name" required className="w-full bg-gray-50 p-4 rounded-2xl border border-gray-100 focus:bg-white focus:ring-2 focus:ring-blue-500/20 outline-none text-sm font-medium" value={userForm.name} onChange={e => setUserForm({...userForm, name: e.target.value})} />
+                <input placeholder="Apple ID (Email)" type="email" required className="w-full bg-gray-50 p-4 rounded-2xl border border-gray-100 focus:bg-white focus:ring-2 focus:ring-blue-500/20 outline-none text-sm font-medium" value={userForm.email} onChange={e => setUserForm({...userForm, email: e.target.value})} />
+              </div>
+              <button type="submit" className="w-full bg-blue-600 text-white py-6 rounded-3xl font-black text-sm uppercase tracking-[0.2em] shadow-xl shadow-blue-600/30 active:scale-[0.99] transition-all flex items-center justify-center gap-3">
+                {editingUserId ? 'UPDATE USER' : 'ADD USER'}
+              </button>
+            </form>
+
+            <div className="space-y-4">
+              <div className="flex justify-between items-end">
+                <h3 className="font-black text-xl text-gray-900">All Users</h3>
+                <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{allUsers.length} Total</span>
+              </div>
+              <div className="space-y-3">
+                 {allUsers.map((user: any) => (
+                    <div key={user.id} className="flex items-center justify-between bg-white p-4 rounded-3xl border border-gray-100 shadow-sm hover:shadow-md transition-all group">
+                       <div>
+                         <p className="font-bold text-gray-900">{user.name}</p>
+                         <p className="text-xs text-gray-500">{user.email}</p>
+                       </div>
+                       <div className="flex items-center gap-2">
+                          <button onClick={() => {
+                            setEditingUserId(user.id);
+                            setUserForm(user);
+                          }} className="text-blue-600 bg-blue-50 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-100 transition-colors">Edit</button>
+                          <button onClick={() => onDeleteUser(user.id)} className="text-gray-300 hover:text-red-500 p-2 hover:bg-red-50 rounded-full transition-all">
+                            <Trash2 size={18} />
+                          </button>
+                       </div>
+                    </div>
+                 ))}
+              </div>
+            </div>
+         </div>
+       )}
     </div>
   );
 }
