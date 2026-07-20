@@ -1,0 +1,1 @@
+sed -i "s/const \[downloadingId, setDownloadingId\] = useState<string | null>(null);/const [downloadingId, setDownloadingId] = useState<string | null>(null);\n  const [downloadProgress, setDownloadProgress] = useState<number>(0);/g" src/App.tsx

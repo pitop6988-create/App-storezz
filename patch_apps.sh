@@ -1,0 +1,1 @@
+sed -i "s/const myApps = apps.filter((a: any) => downloadedApps.has(a.id) || purchaseLibrary.has(a.id));/const myApps = apps.filter((a: any) => appTab === 'All' ? (downloadedApps.has(a.id) || purchaseLibrary.has(a.id)) : (purchaseLibrary.has(a.id) \&\& \!downloadedApps.has(a.id)));/g" src/App.tsx

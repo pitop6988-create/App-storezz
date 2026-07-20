@@ -52,3 +52,11 @@ export interface AppStoreState {
   viewingAppId: string | null;
   isAdmin: boolean;
 }
+
+export interface UserEntry {
+  id: string;
+  name: string;
+  email: string;
+  password?: string;
+  phone?: string;
+}
