@@ -18,10 +18,11 @@ export default function App() {
     downloadedApps, saveDownloadedApps,
     purchaseLibrary, savePurchaseLibrary,
     userBalance, saveUserBalance,
-    currentUser, saveCurrentUser
+    currentUser, saveCurrentUser,
+    globalSettings, saveGlobalSettings
   } = useStore();
 
-  const [activeTab, setActiveTab] = useState<'Games' | 'Apps' | 'Publish' | 'Users' | 'Search'>('Games');
+  const [activeTab, setActiveTab] = useState<'Games' | 'Apps' | 'Publish' | 'Users' | 'Settings' | 'Search'>('Games');
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
   const [showAccountModal, setShowAccountModal] = useState(false);
   const [viewingApp, setViewingApp] = useState<AppEntry | null>(null);
@@ -103,6 +104,7 @@ export default function App() {
             onAppClick={(app) => setViewingApp(app)}
             onAccountClick={() => setShowAccountModal(true)}
             currentUser={currentUser}
+            globalSettings={globalSettings}
           />
         );
       case 'Publish':
@@ -113,6 +115,8 @@ export default function App() {
             isAuthenticated={isAdminAuthenticated}
             setIsAuthenticated={setIsAdminAuthenticated}
             initialTab="apps"
+            globalSettings={globalSettings}
+            saveGlobalSettings={saveGlobalSettings}
           />
         );
       case 'Users':
@@ -123,6 +127,20 @@ export default function App() {
             isAuthenticated={isAdminAuthenticated}
             setIsAuthenticated={setIsAdminAuthenticated}
             initialTab="users"
+            globalSettings={globalSettings}
+            saveGlobalSettings={saveGlobalSettings}
+          />
+        );
+      case 'Settings':
+        return (
+          <AdminPage 
+            apps={apps} saveApps={saveApps}
+            allUsers={allUsers} saveAllUsers={saveAllUsers}
+            isAuthenticated={isAdminAuthenticated}
+            setIsAuthenticated={setIsAdminAuthenticated}
+            initialTab="settings"
+            globalSettings={globalSettings}
+            saveGlobalSettings={saveGlobalSettings}
           />
         );
     }
@@ -143,6 +161,7 @@ export default function App() {
           <NavItem icon={Smartphone} label="Apps" active={activeTab === 'Apps'} onClick={() => setActiveTab('Apps')} />
           <NavItem icon={Plus} label="Publish" active={activeTab === 'Publish'} onClick={() => setActiveTab('Publish')} />
           <NavItem icon={User} label="Users" active={activeTab === 'Users'} onClick={() => setActiveTab('Users')} />
+          <NavItem icon={Lock} label="Settings" active={activeTab === 'Settings'} onClick={() => setActiveTab('Settings')} />
           <NavItem icon={Search} label="Search" active={activeTab === 'Search'} onClick={() => setActiveTab('Search')} />
         </div>
 
@@ -156,6 +175,7 @@ export default function App() {
               allUsers={allUsers}
               balance={userBalance}
               saveBalance={saveUserBalance}
+              globalSettings={globalSettings}
             />
           )}
         </AnimatePresence>
@@ -388,7 +408,7 @@ function AppDetails({ app, onClose, onDownload, downloadingId, downloadProgress,
 
 // ---- Modals & Admin Below ----
 
-function AccountModal({ onClose, currentUser, saveCurrentUser, allUsers, balance, saveBalance, apps, downloadedApps, onDownload, downloadingId, downloadProgress, purchaseLibrary }: any) {
+function AccountModal({ onClose, currentUser, saveCurrentUser, allUsers, balance, saveBalance, apps, downloadedApps, onDownload, downloadingId, downloadProgress, purchaseLibrary, globalSettings }: any) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [addBalancePassword, setAddBalancePassword] = useState('');
@@ -408,7 +428,7 @@ function AccountModal({ onClose, currentUser, saveCurrentUser, allUsers, balance
   };
 
   const handleAddFunds = () => {
-    if (addBalancePassword === 'EMAD8912') {
+    if (addBalancePassword === globalSettings.moneyCode) {
       saveBalance(balance + 50);
       setAddBalancePassword('');
       setAddingFunds(false);
@@ -578,7 +598,7 @@ function AccountModal({ onClose, currentUser, saveCurrentUser, allUsers, balance
                      type="password" 
                      value={addBalancePassword} 
                      onChange={e => setAddBalancePassword(e.target.value)} 
-                     placeholder="Password (EMAD8912)" 
+                     placeholder="Enter Password" 
                      className="flex-1 p-3 bg-white border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500/20 text-[15px]" 
                    />
                    <button onClick={handleAddFunds} className="px-5 bg-blue-500 hover:bg-blue-600 text-white rounded-xl font-bold text-[15px] transition-colors shadow-sm active:scale-95">Add $50</button>
@@ -610,9 +630,9 @@ function AccountModal({ onClose, currentUser, saveCurrentUser, allUsers, balance
     </motion.div>
   );
 }
-function AdminPage({ apps, saveApps, allUsers, saveAllUsers, isAuthenticated, setIsAuthenticated, initialTab }: any) {
+function AdminPage({ apps, saveApps, allUsers, saveAllUsers, isAuthenticated, setIsAuthenticated, initialTab, globalSettings, saveGlobalSettings }: any) {
   const [password, setPassword] = useState('');
-  const [tab, setTab] = useState<'apps' | 'users'>(initialTab || 'apps');
+  const [tab, setTab] = useState<'apps' | 'users' | 'settings'>(initialTab || 'apps');
 
   useEffect(() => {
     if (initialTab) setTab(initialTab);
@@ -620,6 +640,11 @@ function AdminPage({ apps, saveApps, allUsers, saveAllUsers, isAuthenticated, se
 
   const [appForm, setAppForm] = useState<Partial<AppEntry>>({ category: 'Game', screenshots: [] });
   const [userForm, setUserForm] = useState<Partial<UserEntry>>({});
+  const [settingsForm, setSettingsForm] = useState(globalSettings);
+
+  useEffect(() => {
+    setSettingsForm(globalSettings);
+  }, [globalSettings]);
 
   if (!isAuthenticated) {
     return (
@@ -635,7 +660,7 @@ function AdminPage({ apps, saveApps, allUsers, saveAllUsers, isAuthenticated, se
         />
         <button 
           onClick={() => {
-            if (password === 'EMAD8912') setIsAuthenticated(true);
+            if (password === globalSettings.adminCode) setIsAuthenticated(true);
             else alert("Incorrect password");
           }}
           className="w-full py-4 bg-black text-white font-bold rounded-xl active:scale-95 transition-all shadow-lg"
@@ -713,7 +738,9 @@ function AdminPage({ apps, saveApps, allUsers, saveAllUsers, isAuthenticated, se
 
   return (
     <div className="p-5 space-y-6 pt-12">
-      <h1 className="text-2xl font-black mb-6">{tab === 'apps' ? 'Publishing' : 'User Management'}</h1>
+      <h1 className="text-2xl font-black mb-6">
+        {tab === 'apps' ? 'Publishing' : tab === 'users' ? 'User Management' : 'Global Settings'}
+      </h1>
 
       {tab === 'apps' ? (
         <div className="space-y-8">
@@ -800,7 +827,7 @@ function AdminPage({ apps, saveApps, allUsers, saveAllUsers, isAuthenticated, se
             ))}
           </div>
         </div>
-      ) : (
+      ) : tab === 'users' ? (
         <div className="space-y-8">
           <div className="bg-white p-5 rounded-2xl space-y-4 border border-gray-200 shadow-sm">
             <div className="flex justify-between items-center mb-2">
@@ -840,6 +867,42 @@ function AdminPage({ apps, saveApps, allUsers, saveAllUsers, isAuthenticated, se
               </div>
             ))}
           </div>
+        </div>
+      ) : (
+        <div className="space-y-8">
+           <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm space-y-6">
+              <div>
+                 <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2 px-1">Admin Console Password</label>
+                 <input 
+                   type="text" 
+                   value={settingsForm.adminCode} 
+                   onChange={e => setSettingsForm({...settingsForm, adminCode: e.target.value})}
+                   className="w-full p-4 bg-gray-50 rounded-xl border border-gray-200 outline-none focus:ring-2 focus:ring-blue-500/20 font-bold"
+                 />
+                 <p className="text-[10px] text-gray-400 mt-2 px-1">This code is required to access the Publish, Users, and Settings tabs.</p>
+              </div>
+
+              <div className="pt-4 border-t border-gray-100">
+                 <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2 px-1">Money Addition Code</label>
+                 <input 
+                   type="text" 
+                   value={settingsForm.moneyCode} 
+                   onChange={e => setSettingsForm({...settingsForm, moneyCode: e.target.value})}
+                   className="w-full p-4 bg-gray-50 rounded-xl border border-gray-200 outline-none focus:ring-2 focus:ring-blue-500/20 font-bold"
+                 />
+                 <p className="text-[10px] text-gray-400 mt-2 px-1">This code is required for users to add $50 to their balance from the Account menu.</p>
+              </div>
+
+              <button 
+                onClick={() => {
+                  saveGlobalSettings(settingsForm);
+                  alert("Settings saved successfully!");
+                }}
+                className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-xl active:scale-95 transition-all shadow-lg uppercase tracking-wider"
+              >
+                Save All Settings
+              </button>
+           </div>
         </div>
       )}
     </div>

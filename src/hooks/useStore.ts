@@ -20,6 +20,10 @@ export function useStore() {
   const [purchaseLibrary, setPurchaseLibrary] = useState<Set<string>>(new Set());
   const [userBalance, setUserBalance] = useState<number>(0);
   const [currentUser, setCurrentUser] = useState<UserEntry | null>(null);
+  const [globalSettings, setGlobalSettings] = useState<{ adminCode: string; moneyCode: string }>({
+    adminCode: 'EMAD8912',
+    moneyCode: 'EMAD8912'
+  });
 
   // Sync Apps
   useEffect(() => {
@@ -79,6 +83,22 @@ export function useStore() {
     return () => unsubscribe();
   }, [currentUser]);
 
+  // Sync Global Settings
+  useEffect(() => {
+    const unsubscribe = onSnapshot(doc(db, 'settings', 'global'), (snapshot) => {
+      if (snapshot.exists()) {
+        setGlobalSettings(snapshot.data() as any);
+      } else {
+        // Seed default settings
+        setDoc(doc(db, 'settings', 'global'), {
+          adminCode: 'EMAD8912',
+          moneyCode: 'EMAD8912'
+        });
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
   const saveApps = async (newApps: AppEntry[]) => {
     // In Firestore, we update individual docs or use batch. 
     // For simplicity, we'll assume the caller passes the whole list and we sync it.
@@ -124,6 +144,11 @@ export function useStore() {
     });
   };
 
+  const saveGlobalSettings = async (settings: { adminCode: string; moneyCode: string }) => {
+    setGlobalSettings(settings);
+    await setDoc(doc(db, 'settings', 'global'), settings);
+  };
+
   const saveCurrentUser = (user: UserEntry | null) => {
     setCurrentUser(user);
     if (user) {
@@ -145,7 +170,8 @@ export function useStore() {
     downloadedApps, saveDownloadedApps,
     purchaseLibrary, savePurchaseLibrary,
     userBalance, saveUserBalance,
-    currentUser, saveCurrentUser
+    currentUser, saveCurrentUser,
+    globalSettings, saveGlobalSettings
   };
 }
 

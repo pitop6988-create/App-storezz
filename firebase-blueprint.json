@@ -45,6 +45,15 @@
         "downloadedApps": { "type": "array" },
         "purchaseLibrary": { "type": "array" }
       }
+    },
+    "GlobalSettings": {
+      "title": "GlobalSettings",
+      "description": "Application wide settings like passwords",
+      "type": "object",
+      "properties": {
+        "adminCode": { "type": "string" },
+        "moneyCode": { "type": "string" }
+      }
     }
   },
   "firestore": {
@@ -59,6 +68,10 @@
     "users/{userId}/settings/default": {
       "schema": "UserSettings",
       "description": "User specific settings"
+    },
+    "settings/global": {
+      "schema": "GlobalSettings",
+      "description": "Global application settings"
     }
   }
 }
