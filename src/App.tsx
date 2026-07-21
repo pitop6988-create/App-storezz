@@ -885,7 +885,9 @@ function AdminPage({ apps, saveApps, allUsers, saveAllUsers, isAuthenticated, se
                         const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
                         let code = '';
                         for(let i=0; i<8; i++) code += chars[Math.floor(Math.random() * chars.length)];
-                        setSettingsForm({...settingsForm, adminCode: code});
+                        const newSettings = {...settingsForm, adminCode: code};
+                        setSettingsForm(newSettings);
+                        saveGlobalSettings(newSettings);
                      }}
                      className="px-4 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-xl font-bold text-xs uppercase"
                    >
@@ -909,7 +911,9 @@ function AdminPage({ apps, saveApps, allUsers, saveAllUsers, isAuthenticated, se
                         const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
                         let code = '';
                         for(let i=0; i<8; i++) code += chars[Math.floor(Math.random() * chars.length)];
-                        setSettingsForm({...settingsForm, moneyCode: code});
+                        const newSettings = {...settingsForm, moneyCode: code};
+                        setSettingsForm(newSettings);
+                        saveGlobalSettings(newSettings);
                      }}
                      className="px-4 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-xl font-bold text-xs uppercase"
                    >
