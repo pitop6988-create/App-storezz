@@ -873,23 +873,49 @@ function AdminPage({ apps, saveApps, allUsers, saveAllUsers, isAuthenticated, se
            <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm space-y-6">
               <div>
                  <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2 px-1">Admin Console Password</label>
-                 <input 
-                   type="text" 
-                   value={settingsForm.adminCode} 
-                   onChange={e => setSettingsForm({...settingsForm, adminCode: e.target.value})}
-                   className="w-full p-4 bg-gray-50 rounded-xl border border-gray-200 outline-none focus:ring-2 focus:ring-blue-500/20 font-bold"
-                 />
+                 <div className="flex gap-2">
+                   <input 
+                     type="text" 
+                     value={settingsForm.adminCode} 
+                     onChange={e => setSettingsForm({...settingsForm, adminCode: e.target.value})}
+                     className="flex-1 p-4 bg-gray-50 rounded-xl border border-gray-200 outline-none focus:ring-2 focus:ring-blue-500/20 font-bold"
+                   />
+                   <button 
+                     onClick={() => {
+                        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+                        let code = '';
+                        for(let i=0; i<8; i++) code += chars[Math.floor(Math.random() * chars.length)];
+                        setSettingsForm({...settingsForm, adminCode: code});
+                     }}
+                     className="px-4 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-xl font-bold text-xs uppercase"
+                   >
+                     Random
+                   </button>
+                 </div>
                  <p className="text-[10px] text-gray-400 mt-2 px-1">This code is required to access the Publish, Users, and Settings tabs.</p>
               </div>
 
               <div className="pt-4 border-t border-gray-100">
                  <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2 px-1">Money Addition Code</label>
-                 <input 
-                   type="text" 
-                   value={settingsForm.moneyCode} 
-                   onChange={e => setSettingsForm({...settingsForm, moneyCode: e.target.value})}
-                   className="w-full p-4 bg-gray-50 rounded-xl border border-gray-200 outline-none focus:ring-2 focus:ring-blue-500/20 font-bold"
-                 />
+                 <div className="flex gap-2">
+                   <input 
+                     type="text" 
+                     value={settingsForm.moneyCode} 
+                     onChange={e => setSettingsForm({...settingsForm, moneyCode: e.target.value})}
+                     className="flex-1 p-4 bg-gray-50 rounded-xl border border-gray-200 outline-none focus:ring-2 focus:ring-blue-500/20 font-bold"
+                   />
+                   <button 
+                     onClick={() => {
+                        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+                        let code = '';
+                        for(let i=0; i<8; i++) code += chars[Math.floor(Math.random() * chars.length)];
+                        setSettingsForm({...settingsForm, moneyCode: code});
+                     }}
+                     className="px-4 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-xl font-bold text-xs uppercase"
+                   >
+                     Random
+                   </button>
+                 </div>
                  <p className="text-[10px] text-gray-400 mt-2 px-1">This code is required for users to add $50 to their balance from the Account menu.</p>
               </div>
 
