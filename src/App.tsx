@@ -21,7 +21,7 @@ export default function App() {
     currentUser, saveCurrentUser
   } = useStore();
 
-  const [activeTab, setActiveTab] = useState<'Games' | 'Apps' | 'Search' | 'Admin'>('Games');
+  const [activeTab, setActiveTab] = useState<'Games' | 'Apps' | 'Publish' | 'Users' | 'Search'>('Games');
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
   const [showAccountModal, setShowAccountModal] = useState(false);
   const [viewingApp, setViewingApp] = useState<AppEntry | null>(null);
@@ -105,13 +105,24 @@ export default function App() {
             currentUser={currentUser}
           />
         );
-      case 'Admin':
+      case 'Publish':
         return (
           <AdminPage 
             apps={apps} saveApps={saveApps}
             allUsers={allUsers} saveAllUsers={saveAllUsers}
             isAuthenticated={isAdminAuthenticated}
             setIsAuthenticated={setIsAdminAuthenticated}
+            initialTab="apps"
+          />
+        );
+      case 'Users':
+        return (
+          <AdminPage 
+            apps={apps} saveApps={saveApps}
+            allUsers={allUsers} saveAllUsers={saveAllUsers}
+            isAuthenticated={isAdminAuthenticated}
+            setIsAuthenticated={setIsAdminAuthenticated}
+            initialTab="users"
           />
         );
     }
@@ -130,8 +141,9 @@ export default function App() {
         <div className="absolute bottom-0 inset-x-0 bg-white/90 backdrop-blur-xl border-t border-gray-200 flex justify-around px-2 py-3 z-40">
           <NavItem icon={Gamepad2} label="Games" active={activeTab === 'Games'} onClick={() => setActiveTab('Games')} />
           <NavItem icon={Smartphone} label="Apps" active={activeTab === 'Apps'} onClick={() => setActiveTab('Apps')} />
+          <NavItem icon={Plus} label="Publish" active={activeTab === 'Publish'} onClick={() => setActiveTab('Publish')} />
+          <NavItem icon={User} label="Users" active={activeTab === 'Users'} onClick={() => setActiveTab('Users')} />
           <NavItem icon={Search} label="Search" active={activeTab === 'Search'} onClick={() => setActiveTab('Search')} />
-          <NavItem icon={Lock} label="Admin" active={activeTab === 'Admin'} onClick={() => setActiveTab('Admin')} />
         </div>
 
         {/* Account Modal */}
@@ -598,9 +610,13 @@ function AccountModal({ onClose, currentUser, saveCurrentUser, allUsers, balance
     </motion.div>
   );
 }
-function AdminPage({ apps, saveApps, allUsers, saveAllUsers, isAuthenticated, setIsAuthenticated }: any) {
+function AdminPage({ apps, saveApps, allUsers, saveAllUsers, isAuthenticated, setIsAuthenticated, initialTab }: any) {
   const [password, setPassword] = useState('');
-  const [tab, setTab] = useState<'apps' | 'users'>('apps');
+  const [tab, setTab] = useState<'apps' | 'users'>(initialTab || 'apps');
+
+  useEffect(() => {
+    if (initialTab) setTab(initialTab);
+  }, [initialTab]);
 
   const [appForm, setAppForm] = useState<Partial<AppEntry>>({ category: 'Game', screenshots: [] });
   const [userForm, setUserForm] = useState<Partial<UserEntry>>({});
@@ -697,11 +713,7 @@ function AdminPage({ apps, saveApps, allUsers, saveAllUsers, isAuthenticated, se
 
   return (
     <div className="p-5 space-y-6 pt-12">
-      <h1 className="text-2xl font-black mb-6">Console</h1>
-      <div className="flex gap-2 p-1 bg-gray-100 rounded-xl mb-6">
-        <button onClick={() => setTab('apps')} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${tab === 'apps' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500'}`}>Manage Apps</button>
-        <button onClick={() => setTab('users')} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${tab === 'users' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500'}`}>Manage Users</button>
-      </div>
+      <h1 className="text-2xl font-black mb-6">{tab === 'apps' ? 'Publishing' : 'User Management'}</h1>
 
       {tab === 'apps' ? (
         <div className="space-y-8">

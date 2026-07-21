@@ -1,93 +1,127 @@
 import { useState, useEffect } from 'react';
-import localforage from 'localforage';
+import { 
+  collection, 
+  onSnapshot, 
+  doc, 
+  setDoc, 
+  updateDoc, 
+  deleteDoc,
+  query,
+  getDocs
+} from 'firebase/firestore';
+import { db } from '../lib/firebase';
 import { AppEntry, UserEntry } from '../types';
 import { INITIAL_APPS } from '../constants';
 
-// We'll use BroadcastChannel for cross-tab localforage sync
-const syncChannel = new BroadcastChannel('ios_store_sync');
-
 export function useStore() {
-  const [apps, setApps] = useState<AppEntry[]>(INITIAL_APPS);
-  const [allUsers, setAllUsers] = useState<UserEntry[]>([{ id: '1', name: 'Admin', email: 'admin@apple.com' }]);
+  const [apps, setApps] = useState<AppEntry[]>([]);
+  const [allUsers, setAllUsers] = useState<UserEntry[]>([]);
   const [downloadedApps, setDownloadedApps] = useState<Set<string>>(new Set());
   const [purchaseLibrary, setPurchaseLibrary] = useState<Set<string>>(new Set());
   const [userBalance, setUserBalance] = useState<number>(0);
   const [currentUser, setCurrentUser] = useState<UserEntry | null>(null);
 
-  const loadApps = async () => {
-    const saved = await localforage.getItem<AppEntry[]>('ios_store_apps');
-    if (saved) setApps(saved);
-  };
-
-  const loadState = () => {
-    loadApps();
-    const savedUsers = localStorage.getItem('ios_store_all_users');
-    if (savedUsers) setAllUsers(JSON.parse(savedUsers));
-
-    const savedDownloaded = localStorage.getItem('ios_store_downloaded_apps');
-    if (savedDownloaded) setDownloadedApps(new Set(JSON.parse(savedDownloaded)));
-
-    const savedPurchased = localStorage.getItem('ios_store_purchase_library');
-    if (savedPurchased) setPurchaseLibrary(new Set(JSON.parse(savedPurchased)));
-
-    const savedBalance = localStorage.getItem('ios_store_user_balance');
-    if (savedBalance) setUserBalance(parseFloat(savedBalance));
-
-    const savedCurrentUser = localStorage.getItem('ios_store_current_user');
-    if (savedCurrentUser) setCurrentUser(JSON.parse(savedCurrentUser));
-  };
-
+  // Sync Apps
   useEffect(() => {
-    loadState();
-
-    const handleStorage = (e: StorageEvent) => {
-      if (e.key === 'ios_store_all_users' && e.newValue) setAllUsers(JSON.parse(e.newValue));
-      if (e.key === 'ios_store_downloaded_apps' && e.newValue) setDownloadedApps(new Set(JSON.parse(e.newValue)));
-      if (e.key === 'ios_store_purchase_library' && e.newValue) setPurchaseLibrary(new Set(JSON.parse(e.newValue)));
-      if (e.key === 'ios_store_user_balance' && e.newValue) setUserBalance(parseFloat(e.newValue));
-      if (e.key === 'ios_store_current_user') {
-        setCurrentUser(e.newValue ? JSON.parse(e.newValue) : null);
+    const unsubscribe = onSnapshot(collection(db, 'apps'), (snapshot) => {
+      const data = snapshot.docs.map(doc => ({ ...doc.data() } as AppEntry));
+      if (data.length > 0) {
+        setApps(data);
+      } else {
+        // Seed initial apps if none exist
+        INITIAL_APPS.forEach(async (app) => {
+          await setDoc(doc(db, 'apps', app.id), app);
+        });
       }
-    };
-
-    window.addEventListener('storage', handleStorage);
-    
-    syncChannel.onmessage = (event) => {
-      if (event.data.type === 'SYNC_APPS') {
-        loadApps();
-      }
-    };
-
-    return () => {
-      window.removeEventListener('storage', handleStorage);
-      syncChannel.onmessage = null;
-    };
+    });
+    return () => unsubscribe();
   }, []);
 
+  // Sync Users
+  useEffect(() => {
+    const unsubscribe = onSnapshot(collection(db, 'users'), (snapshot) => {
+      const data = snapshot.docs.map(doc => ({ ...doc.data() } as UserEntry));
+      setAllUsers(data);
+      
+      // Seed default admin if no users exist
+      if (snapshot.empty) {
+        const adminUser = { id: '1', name: 'Admin', email: 'admin@apple.com', password: 'admin' };
+        setDoc(doc(db, 'users', adminUser.id), adminUser);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Sync User Settings (Balance, Library)
+  useEffect(() => {
+    if (!currentUser) {
+      setDownloadedApps(new Set());
+      setPurchaseLibrary(new Set());
+      setUserBalance(0);
+      return;
+    }
+
+    const unsubscribe = onSnapshot(doc(db, 'users', currentUser.id, 'settings', 'default'), (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.data();
+        setDownloadedApps(new Set(data.downloadedApps || []));
+        setPurchaseLibrary(new Set(data.purchaseLibrary || []));
+        setUserBalance(data.balance || 0);
+      } else {
+        // Initialize settings if they don't exist
+        setDoc(doc(db, 'users', currentUser.id, 'settings', 'default'), {
+          balance: 0,
+          downloadedApps: [],
+          purchaseLibrary: []
+        });
+      }
+    });
+    return () => unsubscribe();
+  }, [currentUser]);
+
   const saveApps = async (newApps: AppEntry[]) => {
-    setApps(newApps);
-    await localforage.setItem('ios_store_apps', newApps);
-    syncChannel.postMessage({ type: 'SYNC_APPS' });
+    // In Firestore, we update individual docs or use batch. 
+    // For simplicity, we'll assume the caller passes the whole list and we sync it.
+    // Better yet, just handle the specific mutations if possible, but the current UI passes the full list.
+    for (const app of newApps) {
+      await setDoc(doc(db, 'apps', app.id), app);
+    }
+    // Handle deletions if needed (comparing newApps with current apps)
+    const currentIds = new Set(newApps.map(a => a.id));
+    const toDelete = apps.filter(a => !currentIds.has(a.id));
+    for (const app of toDelete) {
+      await deleteDoc(doc(db, 'apps', app.id));
+    }
   };
 
-  const saveAllUsers = (newUsers: UserEntry[]) => {
-    setAllUsers(newUsers);
-    localStorage.setItem('ios_store_all_users', JSON.stringify(newUsers));
+  const saveAllUsers = async (newUsers: UserEntry[]) => {
+    for (const user of newUsers) {
+      await setDoc(doc(db, 'users', user.id), user);
+    }
   };
 
-  const saveDownloadedApps = (newDownloaded: Set<string>) => {
+  const saveDownloadedApps = async (newDownloaded: Set<string>) => {
+    if (!currentUser) return;
     setDownloadedApps(newDownloaded);
-    localStorage.setItem('ios_store_downloaded_apps', JSON.stringify(Array.from(newDownloaded)));
+    await updateDoc(doc(db, 'users', currentUser.id, 'settings', 'default'), {
+      downloadedApps: Array.from(newDownloaded)
+    });
   };
 
-  const savePurchaseLibrary = (newPurchased: Set<string>) => {
+  const savePurchaseLibrary = async (newPurchased: Set<string>) => {
+    if (!currentUser) return;
     setPurchaseLibrary(newPurchased);
-    localStorage.setItem('ios_store_purchase_library', JSON.stringify(Array.from(newPurchased)));
+    await updateDoc(doc(db, 'users', currentUser.id, 'settings', 'default'), {
+      purchaseLibrary: Array.from(newPurchased)
+    });
   };
 
-  const saveUserBalance = (newBalance: number) => {
+  const saveUserBalance = async (newBalance: number) => {
+    if (!currentUser) return;
     setUserBalance(newBalance);
-    localStorage.setItem('ios_store_user_balance', newBalance.toString());
+    await updateDoc(doc(db, 'users', currentUser.id, 'settings', 'default'), {
+      balance: newBalance
+    });
   };
 
   const saveCurrentUser = (user: UserEntry | null) => {
@@ -99,6 +133,12 @@ export function useStore() {
     }
   };
 
+  // Initial load for currentUser from localStorage (for session persistence)
+  useEffect(() => {
+    const saved = localStorage.getItem('ios_store_current_user');
+    if (saved) setCurrentUser(JSON.parse(saved));
+  }, []);
+
   return {
     apps, saveApps,
     allUsers, saveAllUsers,
@@ -108,3 +148,4 @@ export function useStore() {
     currentUser, saveCurrentUser
   };
 }
+
