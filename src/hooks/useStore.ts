@@ -20,9 +20,9 @@ export function useStore() {
   const [purchaseLibrary, setPurchaseLibrary] = useState<Set<string>>(new Set());
   const [userBalance, setUserBalance] = useState<number>(0);
   const [currentUser, setCurrentUser] = useState<UserEntry | null>(null);
-  const [globalSettings, setGlobalSettings] = useState<{ adminCode: string; moneyCode: string }>({
+  const [globalSettings, setGlobalSettings] = useState<{ adminCode: string; moneyCode: string; moneyCodes?: { code: string; amount: number }[] }>({
     adminCode: 'EMAD8912',
-    moneyCode: 'EMAD8912'
+    moneyCode: 'EMAD8912', moneyCodes: []
   });
 
   // Sync Apps
@@ -92,7 +92,7 @@ export function useStore() {
         // Seed default settings
         setDoc(doc(db, 'settings', 'global'), {
           adminCode: 'EMAD8912',
-          moneyCode: 'EMAD8912'
+          moneyCode: 'EMAD8912', moneyCodes: []
         });
       }
     });
@@ -144,7 +144,7 @@ export function useStore() {
     });
   };
 
-  const saveGlobalSettings = async (settings: { adminCode: string; moneyCode: string }) => {
+  const saveGlobalSettings = async (settings: { adminCode: string; moneyCode: string; moneyCodes?: { code: string; amount: number }[] }) => {
     setGlobalSettings(settings);
     await setDoc(doc(db, 'settings', 'global'), settings);
   };

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Search, Gamepad2, Smartphone, LayoutGrid, User, Plus, Trash2, Edit2, Lock, Unlock, Download, Check, AlertCircle, ChevronLeft, Star, Share, ExternalLink, Image as ImageIcon, File, UploadCloud, X , ChevronRight, Mic, CloudDownload } from 'lucide-react';
+import { Search, Gamepad2, Smartphone, LayoutGrid, User, Plus, Trash2, Edit2, Lock, Unlock, Download, Check, AlertCircle, ChevronLeft, Star, Share, ExternalLink, Image as ImageIcon, File, UploadCloud, X , ChevronRight, Mic, CloudDownload, Fingerprint } from 'lucide-react';
 import { AppEntry, AppCategory, UserEntry } from './types';
 import { useStore } from './hooks/useStore';
 
@@ -26,12 +26,14 @@ export default function App() {
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
   const [showAccountModal, setShowAccountModal] = useState(false);
   const [viewingApp, setViewingApp] = useState<AppEntry | null>(null);
+  const [viewingDeveloper, setViewingDeveloper] = useState<string | null>(null);
+  const [confirmingApp, setConfirmingApp] = useState<AppEntry | null>(null);
 
   // Download logic
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [downloadProgress, setDownloadProgress] = useState<number>(0);
 
-  const handleDownload = (app: AppEntry, e?: React.MouseEvent) => {
+    const handleDownload = (app: AppEntry, e?: React.MouseEvent) => {
     e?.stopPropagation();
     if (!currentUser) {
       alert("Please sign in to download apps.");
@@ -40,7 +42,6 @@ export default function App() {
     }
 
     if (downloadedApps.has(app.id)) {
-      // It's already downloaded, so this is the "OPEN" action
       if (app.externalLink || app.downloadUrl || app.apkUrl || app.iosUrl) {
         const link = app.externalLink || app.downloadUrl || app.apkUrl || app.iosUrl;
         window.open(link, '_blank');
@@ -50,6 +51,16 @@ export default function App() {
       return;
     }
 
+    const isPurchased = purchaseLibrary.has(app.id);
+    if (!isPurchased) {
+      setConfirmingApp(app);
+    } else {
+      processDownload(app);
+    }
+  };
+
+  const processDownload = (app: AppEntry) => {
+    setConfirmingApp(null);
     const isFree = !app.price || app.price === 'Free';
     const priceValue = isFree ? 0 : parseFloat(app.price.replace('$', ''));
 
@@ -104,7 +115,7 @@ export default function App() {
             onAppClick={(app) => setViewingApp(app)}
             onAccountClick={() => setShowAccountModal(true)}
             currentUser={currentUser}
-            globalSettings={globalSettings}
+            globalSettings={globalSettings} saveGlobalSettings={saveGlobalSettings}
           />
         );
       case 'Publish':
@@ -147,8 +158,8 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 text-gray-900 font-sans flex justify-center">
-      <div className="w-full max-w-md bg-white min-h-screen shadow-2xl flex flex-col relative overflow-hidden">
+    <div className="h-[100dvh] bg-gray-50 text-gray-900 font-sans flex justify-center overflow-hidden">
+      <div className="w-full max-w-md bg-white h-full shadow-2xl flex flex-col relative overflow-hidden">
         
         {/* Content */}
         <div className="flex-1 overflow-y-auto pb-24 relative">
@@ -175,8 +186,105 @@ export default function App() {
               allUsers={allUsers}
               balance={userBalance}
               saveBalance={saveUserBalance}
-              globalSettings={globalSettings}
+              globalSettings={globalSettings} saveGlobalSettings={saveGlobalSettings}
             />
+          )}
+        </AnimatePresence>
+
+        {/* Developer View */}
+        <AnimatePresence>
+          {viewingDeveloper && (
+            <motion.div 
+              initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              className="absolute inset-0 bg-white z-[60] flex flex-col"
+            >
+              <div className="absolute top-0 inset-x-0 h-16 bg-white/80 backdrop-blur-md z-10 flex items-center px-4 border-b border-gray-100">
+                <button onClick={() => setViewingDeveloper(null)} className="flex items-center text-blue-500 font-medium">
+                  <ChevronLeft size={24} className="-ml-1" />
+                  Back
+                </button>
+              </div>
+              <div className="flex-1 overflow-y-auto pt-20 pb-24 px-5">
+                <h1 className="text-3xl font-black mb-6">{viewingDeveloper}</h1>
+                <div className="space-y-4">
+                  {apps.filter(a => a.developer === viewingDeveloper).map(app => (
+                    <div key={app.id} onClick={() => setViewingApp(app)} className="flex items-center gap-4 py-2 cursor-pointer hover:bg-gray-50 rounded-xl transition-colors -mx-2 px-2">
+                      <img src={app.iconUrl} alt={app.name} className="w-16 h-16 rounded-[1.25rem] object-cover shadow-sm border border-gray-100" />
+                      <div className="flex-1 min-w-0">
+                        <p className="font-bold text-gray-900 truncate">{app.name}</p>
+                        <p className="text-xs text-gray-500 truncate">{app.subtitle}</p>
+                      </div>
+                      <DownloadButton app={app} onDownload={handleDownload} downloadingId={downloadingId} downloadProgress={downloadProgress} downloadedApps={downloadedApps} purchaseLibrary={purchaseLibrary} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+                {/* Install Confirmation Modal */}
+        <AnimatePresence>
+          {confirmingApp && (
+            <div className="absolute inset-0 z-[100] flex flex-col justify-end">
+              <motion.div 
+                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+                onClick={() => setConfirmingApp(null)}
+              />
+              <motion.div 
+                initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
+                transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+                className="relative bg-gray-100 rounded-t-3xl shadow-2xl flex flex-col items-center w-full max-h-[80vh] overflow-y-auto"
+              >
+                <div className="w-full bg-white px-5 pt-6 pb-4 rounded-t-3xl relative overflow-hidden">
+                  <div className="w-full flex justify-between items-center mb-6">
+                    <h3 className="font-bold text-xl">App Store</h3>
+                    <button onClick={() => setConfirmingApp(null)} className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center text-gray-500 font-bold hover:bg-gray-200">
+                      <X size={18} />
+                    </button>
+                  </div>
+                  
+                  <div className="w-full flex items-center gap-4">
+                    <img src={confirmingApp.iconUrl} alt={confirmingApp.name} className="w-16 h-16 rounded-[1.25rem] object-cover border border-gray-100 shadow-sm" />
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-bold text-gray-900 truncate">{confirmingApp.name}</h4>
+                      <p className="text-sm text-gray-500 truncate">{confirmingApp.developer || 'Evolve Global, Inc.'}</p>
+                      <p className="text-xs text-gray-400 mt-1">Offers In-App Purchases</p>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="w-full py-4 px-5 border-t border-b border-gray-200 text-sm text-gray-500 bg-white mb-6">
+                  Account: <span className="text-gray-900">{currentUser?.email || currentUser?.username || 'user@icloud.com'}</span>
+                </div>
+                
+                <div className="mt-2 flex flex-col items-center w-full pb-8">
+                  <button 
+                    onDoubleClick={() => processDownload(confirmingApp)}
+                    onClick={() => processDownload(confirmingApp)}
+                    className="w-14 h-14 rounded-full border-2 border-blue-500 flex items-center justify-center text-blue-500 mb-3 hover:bg-blue-50 active:bg-blue-100 transition-colors shadow-sm"
+                  >
+                    <Fingerprint size={32} />
+                  </button>
+                  <p className="font-bold text-gray-900">Confirm with Side Button</p>
+                </div>
+
+                {/* Double-click text hovering */}
+                <div className="absolute top-28 right-4 flex flex-col items-end pointer-events-none z-50 text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
+                  <div className="font-bold text-lg whitespace-nowrap">
+                    Double-Click
+                  </div>
+                  <div className="font-bold text-lg whitespace-nowrap">
+                    to Install
+                  </div>
+                  <div className="w-8 h-1 bg-white mt-2 rounded-full relative">
+                     <div className="absolute right-0 top-1/2 -translate-y-1/2 border-t-4 border-b-4 border-l-[6px] border-t-transparent border-b-transparent border-l-white"></div>
+                  </div>
+                </div>
+              </motion.div>
+            </div>
           )}
         </AnimatePresence>
 
@@ -184,7 +292,8 @@ export default function App() {
         <AnimatePresence>
           {viewingApp && (
             <AppDetails 
-              app={viewingApp} 
+              app={viewingApp}
+              onDeveloperClick={setViewingDeveloper} 
               onClose={() => setViewingApp(null)} 
               onDownload={handleDownload}
               downloadingId={downloadingId} downloadProgress={downloadProgress}
@@ -324,13 +433,25 @@ function StoreFront({ apps, tab, onDownload, downloadingId, downloadProgress, do
   );
 }
 
-function AppDetails({ app, onClose, onDownload, downloadingId, downloadProgress, downloadedApps, purchaseLibrary }: any) {
+function AppDetails({ app, onClose, onDownload, downloadingId, downloadProgress, downloadedApps, purchaseLibrary, onDeveloperClick }: any) {
+  const [fullscreenScreenshot, setFullscreenScreenshot] = React.useState<string | null>(null);
   return (
     <motion.div 
       initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
       transition={{ type: 'spring', damping: 25, stiffness: 200 }}
       className="absolute inset-0 bg-white z-50 flex flex-col"
     >
+      <AnimatePresence>
+        {fullscreenScreenshot && (
+          <motion.div 
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-xl flex items-center justify-center p-4 cursor-pointer"
+            onClick={() => setFullscreenScreenshot(null)}
+          >
+            <img src={fullscreenScreenshot} className="max-w-full max-h-[90vh] object-contain rounded-xl" />
+          </motion.div>
+        )}
+      </AnimatePresence>
       <div className="absolute top-0 inset-x-0 h-16 bg-white/80 backdrop-blur-md z-10 flex items-center px-4 border-b border-gray-100">
         <button onClick={onClose} className="flex items-center text-blue-500 font-medium">
           <ChevronLeft size={24} className="-ml-1" />
@@ -345,6 +466,7 @@ function AppDetails({ app, onClose, onDownload, downloadingId, downloadProgress,
             <div>
               <h1 className="text-xl font-bold leading-tight text-gray-900">{app.name}</h1>
               <h2 className="text-sm text-gray-500 mt-0.5">{app.subtitle}</h2>
+              <p onClick={() => onDeveloperClick && onDeveloperClick(app.developer)} className="text-xs text-blue-500 font-medium mt-1 cursor-pointer">{app.developer}</p>
             </div>
             <div className="flex items-center justify-between mt-4">
                <DownloadButton app={app} onDownload={onDownload} downloadingId={downloadingId} downloadProgress={downloadProgress} downloadedApps={downloadedApps} purchaseLibrary={purchaseLibrary} />
@@ -376,7 +498,7 @@ function AppDetails({ app, onClose, onDownload, downloadingId, downloadProgress,
           <div className="mb-8">
             <div className="flex gap-3 overflow-x-auto no-scrollbar snap-x snap-mandatory pb-4 -mx-5 px-5">
               {app.screenshots.map((s: string, i: number) => (
-                <img key={i} src={s} alt="Screenshot" className="w-[200px] h-[350px] object-cover rounded-2xl border border-gray-100 snap-center shadow-sm shrink-0 bg-gray-100" />
+                <img key={i} src={s} alt="Screenshot" onClick={() => setFullscreenScreenshot(s)} className="w-[200px] h-[350px] object-cover rounded-2xl border border-gray-100 snap-center shadow-sm shrink-0 bg-gray-100 cursor-pointer" />
               ))}
             </div>
           </div>
@@ -387,18 +509,26 @@ function AppDetails({ app, onClose, onDownload, downloadingId, downloadProgress,
         </div>
 
         <div className="space-y-3 pt-6 border-t border-gray-100">
-           <h3 className="font-bold text-lg">Information</h3>
-           <div className="flex justify-between py-3 border-b border-gray-50 text-sm">
+           <h3 className="font-bold text-lg mb-2">Information</h3>
+           <div className="flex justify-between items-center py-3 border-b border-gray-50 text-sm">
              <span className="text-gray-500">Provider</span>
-             <span className="text-gray-900">{app.developer || 'Unknown'}</span>
+             <span className="text-blue-500 font-medium cursor-pointer" onClick={() => onDeveloperClick && onDeveloperClick(app.developer || 'Unknown')}>{app.developer || 'Unknown'}</span>
            </div>
-           <div className="flex justify-between py-3 border-b border-gray-50 text-sm">
+           <div className="flex justify-between items-center py-3 border-b border-gray-50 text-sm">
              <span className="text-gray-500">Size</span>
-             <span className="text-gray-900">{app.size || '100 MB'}</span>
+             <span className="text-gray-900 font-medium">{app.size || '100 MB'}</span>
            </div>
-           <div className="flex justify-between py-3 border-b border-gray-50 text-sm">
+           <div className="flex justify-between items-center py-3 border-b border-gray-50 text-sm">
              <span className="text-gray-500">Category</span>
-             <span className="text-gray-900">{app.category || 'App'}</span>
+             <span className="text-gray-900 font-medium">{app.category || 'App'}</span>
+           </div>
+           <div className="flex justify-between items-center py-3 border-b border-gray-50 text-sm">
+             <span className="text-gray-500">Compatibility</span>
+             <span className="text-gray-900 font-medium">Works on this device</span>
+           </div>
+           <div className="flex justify-between items-center py-3 border-b border-gray-50 text-sm">
+             <span className="text-gray-500">Age Rating</span>
+             <span className="text-gray-900 font-medium">{app.category === 'Game' ? '12+' : '4+'}</span>
            </div>
         </div>
       </div>
@@ -408,7 +538,7 @@ function AppDetails({ app, onClose, onDownload, downloadingId, downloadProgress,
 
 // ---- Modals & Admin Below ----
 
-function AccountModal({ onClose, currentUser, saveCurrentUser, allUsers, balance, saveBalance, apps, downloadedApps, onDownload, downloadingId, downloadProgress, purchaseLibrary, globalSettings }: any) {
+function AccountModal({ onClose, currentUser, saveCurrentUser, allUsers, balance, saveBalance, apps, downloadedApps, onDownload, downloadingId, downloadProgress, purchaseLibrary, globalSettings, saveGlobalSettings }: any) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [addBalancePassword, setAddBalancePassword] = useState('');
@@ -428,12 +558,24 @@ function AccountModal({ onClose, currentUser, saveCurrentUser, allUsers, balance
   };
 
   const handleAddFunds = () => {
+    let addedAmount = 0;
+    let matchedCodeObj = globalSettings.moneyCodes?.find((c: any) => c.code === addBalancePassword || c === addBalancePassword);
+    
     if (addBalancePassword === globalSettings.moneyCode) {
-      saveBalance(balance + 50);
+      addedAmount = 50;
+    } else if (matchedCodeObj) {
+      addedAmount = matchedCodeObj.amount || 50;
+      const newCodes = globalSettings.moneyCodes.filter((c: any) => c !== matchedCodeObj);
+      saveGlobalSettings({ ...globalSettings, moneyCodes: newCodes });
+    }
+
+    if (addedAmount > 0) {
+      saveBalance(balance + addedAmount);
       setAddBalancePassword('');
       setAddingFunds(false);
+      alert(`Successfully added ${addedAmount} to your balance!`);
     } else {
-      alert('Incorrect Password');
+      alert('Invalid Code');
     }
   };
 
@@ -752,6 +894,7 @@ function AdminPage({ apps, saveApps, allUsers, saveAllUsers, isAuthenticated, se
             
             <input placeholder="App Name" className="w-full p-3 bg-gray-50 rounded-xl outline-none focus:ring-2 focus:ring-blue-500/20" value={appForm.name || ''} onChange={e => setAppForm({...appForm, name: e.target.value})} />
             <input placeholder="Subtitle" className="w-full p-3 bg-gray-50 rounded-xl outline-none focus:ring-2 focus:ring-blue-500/20" value={appForm.subtitle || ''} onChange={e => setAppForm({...appForm, subtitle: e.target.value})} />
+            <input placeholder="Developer" className="w-full p-3 bg-gray-50 rounded-xl outline-none focus:ring-2 focus:ring-blue-500/20" value={appForm.developer || ''} onChange={e => setAppForm({...appForm, developer: e.target.value})} />
             <textarea placeholder="Description" className="w-full p-3 bg-gray-50 rounded-xl outline-none focus:ring-2 focus:ring-blue-500/20 min-h-[80px]" value={appForm.description || ''} onChange={e => setAppForm({...appForm, description: e.target.value})} />
             
             <div className="flex gap-3">
@@ -898,29 +1041,51 @@ function AdminPage({ apps, saveApps, allUsers, saveAllUsers, isAuthenticated, se
               </div>
 
               <div className="pt-4 border-t border-gray-100">
-                 <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2 px-1">Money Addition Code</label>
-                 <div className="flex gap-2">
-                   <input 
-                     type="text" 
-                     value={settingsForm.moneyCode} 
-                     onChange={e => setSettingsForm({...settingsForm, moneyCode: e.target.value})}
-                     className="flex-1 p-4 bg-gray-50 rounded-xl border border-gray-200 outline-none focus:ring-2 focus:ring-blue-500/20 font-bold"
-                   />
-                   <button 
-                     onClick={() => {
-                        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-                        let code = '';
-                        for(let i=0; i<8; i++) code += chars[Math.floor(Math.random() * chars.length)];
-                        const newSettings = {...settingsForm, moneyCode: code};
-                        setSettingsForm(newSettings);
-                        saveGlobalSettings(newSettings);
-                     }}
-                     className="px-4 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-xl font-bold text-xs uppercase"
-                   >
-                     Random
-                   </button>
+                 <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2 px-1">Money Addition Codes (One Tap Copy)</label>
+                 <div className="space-y-2">
+                   {(settingsForm.moneyCodes || []).map((cObj: any, idx: number) => (
+                     <div key={idx} className="flex gap-2 items-center">
+                       <input 
+                         type="text" 
+                         value={cObj.code || cObj}
+                         readOnly
+                         className="flex-1 p-3 bg-gray-50 rounded-xl border border-gray-200 outline-none font-bold text-sm text-gray-600"
+                       />
+                       <span className="font-black text-green-600 w-12">${cObj.amount || 50}</span>
+                       <button onClick={() => {
+                          navigator.clipboard.writeText(cObj.code || cObj);
+                          alert("Code Copied!");
+                       }} className="px-4 py-3 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-xl font-bold text-xs uppercase transition-colors">Copy</button>
+                       <button onClick={() => {
+                          const newCodes = settingsForm.moneyCodes.filter((_: any, i: number) => i !== idx);
+                          const newSettings = {...settingsForm, moneyCodes: newCodes};
+                          setSettingsForm(newSettings);
+                          saveGlobalSettings(newSettings);
+                       }} className="px-4 py-3 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl font-bold text-xs uppercase transition-colors"><Trash2 size={16}/></button>
+                     </div>
+                   ))}
+                   
+                   <div className="grid grid-cols-2 gap-2 pt-2">
+                     {[5, 10, 50, 100].map(amount => (
+                       <button 
+                         key={amount}
+                         onClick={() => {
+                            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+                            let code = '';
+                            for(let i=0; i<8; i++) code += chars[Math.floor(Math.random() * chars.length)];
+                            const newCodes = [...(settingsForm.moneyCodes || []), { code, amount }];
+                            const newSettings = {...settingsForm, moneyCodes: newCodes};
+                            setSettingsForm(newSettings);
+                            saveGlobalSettings(newSettings);
+                         }}
+                         className="px-2 py-3 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-xl font-bold text-xs uppercase flex justify-center items-center gap-1"
+                       >
+                         <Plus size={14} /> ${amount}
+                       </button>
+                     ))}
+                   </div>
                  </div>
-                 <p className="text-[10px] text-gray-400 mt-2 px-1">This code is required for users to add $50 to their balance from the Account menu.</p>
+                 <p className="text-[10px] text-gray-400 mt-2 px-1">These codes can be used to add balance. Users can consume a code once.</p>
               </div>
 
               <button 
