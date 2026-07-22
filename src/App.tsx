@@ -1,3 +1,6 @@
+import { QRCodeSVG } from "qrcode.react";
+import { Scanner } from "@yudiel/react-qr-scanner";
+import { QrCode } from "lucide-react";
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Search, Gamepad2, Smartphone, LayoutGrid, User, Plus, Trash2, Edit2, Lock, Unlock, Download, Check, AlertCircle, ChevronLeft, Star, Share, ExternalLink, Image as ImageIcon, File, UploadCloud, X , ChevronRight, Mic, CloudDownload, Fingerprint } from 'lucide-react';
@@ -28,6 +31,7 @@ export default function App() {
   const [viewingApp, setViewingApp] = useState<AppEntry | null>(null);
   const [viewingDeveloper, setViewingDeveloper] = useState<string | null>(null);
   const [confirmingApp, setConfirmingApp] = useState<AppEntry | null>(null);
+  const [isConfirmingDownload, setIsConfirmingDownload] = useState(false);
 
   // Download logic
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
@@ -262,13 +266,25 @@ export default function App() {
                 
                 <div className="mt-2 flex flex-col items-center w-full pb-8">
                   <button 
-                    onDoubleClick={() => processDownload(confirmingApp)}
-                    onClick={() => processDownload(confirmingApp)}
-                    className="w-14 h-14 rounded-full border-2 border-blue-500 flex items-center justify-center text-blue-500 mb-3 hover:bg-blue-50 active:bg-blue-100 transition-colors shadow-sm"
+                    onDoubleClick={() => {
+                      setIsConfirmingDownload(true);
+                      setTimeout(() => {
+                        setIsConfirmingDownload(false);
+                        if (confirmingApp) processDownload(confirmingApp);
+                      }, 1000);
+                    }}
+                    onClick={() => {
+                      setIsConfirmingDownload(true);
+                      setTimeout(() => {
+                        setIsConfirmingDownload(false);
+                        if (confirmingApp) processDownload(confirmingApp);
+                      }, 1000);
+                    }}
+                    className={`w-14 h-14 rounded-full border-2 flex items-center justify-center mb-3 transition-colors shadow-sm ${isConfirmingDownload ? 'bg-blue-500 border-blue-500 text-white' : 'border-blue-500 text-blue-500 hover:bg-blue-50 active:bg-blue-100'}`}
                   >
-                    <Fingerprint size={32} />
+                    {isConfirmingDownload ? <Check size={32} /> : <Fingerprint size={32} />}
                   </button>
-                  <p className="font-bold text-gray-900">Confirm with Side Button</p>
+                  <p className="font-bold text-gray-900">{isConfirmingDownload ? 'Confirmed' : 'Confirm with Side Button'}</p>
                 </div>
 
                 {/* Double-click text hovering */}
@@ -288,6 +304,7 @@ export default function App() {
           )}
         </AnimatePresence>
 
+        
         {/* App Details View */}
         <AnimatePresence>
           {viewingApp && (
@@ -543,6 +560,7 @@ function AccountModal({ onClose, currentUser, saveCurrentUser, allUsers, balance
   const [password, setPassword] = useState('');
   const [addBalancePassword, setAddBalancePassword] = useState('');
   const [addingFunds, setAddingFunds] = useState(false);
+  const [isScanningCode, setIsScanningCode] = useState(false);
   const [showApps, setShowApps] = useState(false);
   const [appTab, setAppTab] = useState<'All' | 'Not'>('All');
   const [searchQuery, setSearchQuery] = useState('');
@@ -581,6 +599,76 @@ function AccountModal({ onClose, currentUser, saveCurrentUser, allUsers, balance
 
   const myApps = apps.filter((a: any) => appTab === 'All' ? (downloadedApps.has(a.id) || purchaseLibrary.has(a.id)) : (purchaseLibrary.has(a.id) && !downloadedApps.has(a.id)));
   const filteredApps = myApps.filter((a: any) => a.name.toLowerCase().includes(searchQuery.toLowerCase()));
+
+  if (isScanningCode) {
+    return (
+      <motion.div 
+        initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
+        transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+        className="absolute inset-0 bg-white z-[100] flex flex-col"
+      >
+        <div className="pt-12 pb-4 px-4 flex justify-between items-center bg-white border-b border-gray-100">
+          <div className="w-8"></div>
+          <h2 className="font-bold text-[17px]">Scan Code</h2>
+          <button onClick={() => setIsScanningCode(false)} className="w-8 h-8 bg-gray-200/80 rounded-full flex items-center justify-center">
+            <X size={18} className="text-gray-500" />
+          </button>
+        </div>
+        
+        <div className="flex-1 bg-black relative flex items-center justify-center overflow-hidden">
+           <Scanner
+              onScan={(result) => {
+                if (result && result.length > 0) {
+                  setAddBalancePassword(result[0].rawValue);
+                  setIsScanningCode(false);
+                }
+              }}
+              onError={(error) => {
+                console.error(error);
+              }}
+           />
+        </div>
+        <div className="p-6 text-center bg-white">
+          <p className="text-sm text-gray-500 font-medium">Position the QR code within the frame to scan.</p>
+        </div>
+      </motion.div>
+    );
+  }
+
+  if (isScanningCode) {
+    return (
+      <motion.div 
+        initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
+        transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+        className="absolute inset-0 bg-white z-[100] flex flex-col"
+      >
+        <div className="pt-12 pb-4 px-4 flex justify-between items-center bg-white border-b border-gray-100">
+          <div className="w-8"></div>
+          <h2 className="font-bold text-[17px]">Scan Code</h2>
+          <button onClick={() => setIsScanningCode(false)} className="w-8 h-8 bg-gray-200/80 rounded-full flex items-center justify-center">
+            <X size={18} className="text-gray-500" />
+          </button>
+        </div>
+        
+        <div className="flex-1 bg-black relative flex items-center justify-center overflow-hidden">
+           <Scanner
+              onScan={(result) => {
+                if (result && result.length > 0) {
+                  setAddBalancePassword(result[0].rawValue);
+                  setIsScanningCode(false);
+                }
+              }}
+              onError={(error) => {
+                console.error(error);
+              }}
+           />
+        </div>
+        <div className="p-6 text-center bg-white">
+          <p className="text-sm text-gray-500 font-medium">Position the QR code within the frame to scan.</p>
+        </div>
+      </motion.div>
+    );
+  }
 
   if (showApps) {
     return (
@@ -773,6 +861,7 @@ function AccountModal({ onClose, currentUser, saveCurrentUser, allUsers, balance
   );
 }
 function AdminPage({ apps, saveApps, allUsers, saveAllUsers, isAuthenticated, setIsAuthenticated, initialTab, globalSettings, saveGlobalSettings }: any) {
+  const [viewingQrCode, setViewingQrCode] = useState<{code: string, amount: number} | null>(null);
   const [password, setPassword] = useState('');
   const [tab, setTab] = useState<'apps' | 'users' | 'settings'>(initialTab || 'apps');
 
@@ -899,6 +988,7 @@ function AdminPage({ apps, saveApps, allUsers, saveAllUsers, isAuthenticated, se
             
             <div className="flex gap-3">
                <input placeholder="Price (Free, $0.99)" className="w-full p-3 bg-gray-50 rounded-xl outline-none focus:ring-2 focus:ring-blue-500/20" value={appForm.price || ''} onChange={e => setAppForm({...appForm, price: e.target.value})} />
+               <input placeholder="Size (e.g. 100 MB)" className="w-full p-3 bg-gray-50 rounded-xl outline-none focus:ring-2 focus:ring-blue-500/20" value={appForm.size || ''} onChange={e => setAppForm({...appForm, size: e.target.value})} />
                <select className="w-full p-3 bg-gray-50 rounded-xl outline-none focus:ring-2 focus:ring-blue-500/20 font-medium" value={appForm.category || 'App'} onChange={e => setAppForm({...appForm, category: e.target.value as AppCategory})}>
                  <option value="App">App</option>
                  <option value="Game">Game</option>
@@ -1052,16 +1142,17 @@ function AdminPage({ apps, saveApps, allUsers, saveAllUsers, isAuthenticated, se
                          className="flex-1 p-3 bg-gray-50 rounded-xl border border-gray-200 outline-none font-bold text-sm text-gray-600"
                        />
                        <span className="font-black text-green-600 w-12">${cObj.amount || 50}</span>
+                       <button onClick={() => setViewingQrCode({ code: cObj.code || cObj, amount: cObj.amount || 50 })} className="px-3 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl transition-colors"><QrCode size={16}/></button>
                        <button onClick={() => {
                           navigator.clipboard.writeText(cObj.code || cObj);
                           alert("Code Copied!");
-                       }} className="px-4 py-3 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-xl font-bold text-xs uppercase transition-colors">Copy</button>
+                       }} className="px-3 py-3 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-xl font-bold text-xs uppercase transition-colors">Copy</button>
                        <button onClick={() => {
                           const newCodes = settingsForm.moneyCodes.filter((_: any, i: number) => i !== idx);
                           const newSettings = {...settingsForm, moneyCodes: newCodes};
                           setSettingsForm(newSettings);
                           saveGlobalSettings(newSettings);
-                       }} className="px-4 py-3 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl font-bold text-xs uppercase transition-colors"><Trash2 size={16}/></button>
+                       }} className="px-3 py-3 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl font-bold text-xs uppercase transition-colors"><Trash2 size={16}/></button>
                      </div>
                    ))}
                    
