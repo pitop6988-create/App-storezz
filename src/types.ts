@@ -1,4 +1,4 @@
-export type AppCategory = 'Game' | 'App';
+export type AppCategory = 'Game' | 'App' | 'Arcade';
 
 export interface VersionEntry {
   version: string;
@@ -44,6 +44,7 @@ export interface AppEntry {
   androidUrl?: string;
   downloads?: string;
   creatorAppleId?: string;
+  videoUrl?: string;
 }
 
 export interface AppStoreState {

@@ -3,7 +3,7 @@ import { Scanner } from "@yudiel/react-qr-scanner";
 import { QrCode } from "lucide-react";
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Search, Gamepad2, Smartphone, LayoutGrid, User, Plus, Trash2, Edit2, Lock, Unlock, Download, Check, AlertCircle, ChevronLeft, Star, Share, ExternalLink, Image as ImageIcon, File, UploadCloud, X , ChevronRight, Mic, CloudDownload, Fingerprint } from 'lucide-react';
+import { Search, Rocket, Layers, Layout, Gamepad2, Smartphone, LayoutGrid, User, Plus, Trash2, Edit2, Lock, Unlock, Download, Check, AlertCircle, ChevronLeft, Star, Share, ExternalLink, Image as ImageIcon, File, UploadCloud, X , ChevronRight, Mic, CloudDownload, Fingerprint, Video, Play } from 'lucide-react';
 import { AppEntry, AppCategory, UserEntry } from './types';
 import { useStore } from './hooks/useStore';
 
@@ -25,7 +25,7 @@ export default function App() {
     globalSettings, saveGlobalSettings
   } = useStore();
 
-  const [activeTab, setActiveTab] = useState<'Games' | 'Apps' | 'Publish' | 'Users' | 'Settings' | 'Search'>('Games');
+  const [activeTab, setActiveTab] = useState<'Today' | 'Games' | 'Apps' | 'Arcade' | 'Publish' | 'Users' | 'Settings' | 'Search'>('Today');
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
   const [showAccountModal, setShowAccountModal] = useState(false);
   const [viewingApp, setViewingApp] = useState<AppEntry | null>(null);
@@ -107,6 +107,7 @@ export default function App() {
       case 'Today':
       case 'Games':
       case 'Apps':
+      case 'Arcade':
       case 'Search':
         return (
           <StoreFront 
@@ -171,13 +172,31 @@ export default function App() {
         </div>
 
         {/* Bottom Nav */}
-        <div className="absolute bottom-0 inset-x-0 bg-white/90 backdrop-blur-xl border-t border-gray-200 flex justify-around px-2 py-3 z-40">
-          <NavItem icon={Gamepad2} label="Games" active={activeTab === 'Games'} onClick={() => setActiveTab('Games')} />
-          <NavItem icon={Smartphone} label="Apps" active={activeTab === 'Apps'} onClick={() => setActiveTab('Apps')} />
-          <NavItem icon={Plus} label="Publish" active={activeTab === 'Publish'} onClick={() => setActiveTab('Publish')} />
-          <NavItem icon={User} label="Users" active={activeTab === 'Users'} onClick={() => setActiveTab('Users')} />
-          <NavItem icon={Lock} label="Settings" active={activeTab === 'Settings'} onClick={() => setActiveTab('Settings')} />
-          <NavItem icon={Search} label="Search" active={activeTab === 'Search'} onClick={() => setActiveTab('Search')} />
+        <div className="absolute bottom-6 inset-x-0 flex justify-center px-4 z-40 pointer-events-none">
+          <div className="flex gap-4 items-center pointer-events-auto">
+             <div className="bg-white/95 backdrop-blur-2xl shadow-xl shadow-black/10 border border-gray-100 rounded-full flex px-1 py-1 h-[68px] max-w-[calc(100vw-110px)] overflow-x-auto no-scrollbar">
+                {!isAdminAuthenticated ? (
+                  <>
+                    <NavItem icon={Layout} label="Today" active={activeTab === 'Today'} onClick={() => setActiveTab('Today')} />
+                    <NavItem icon={Rocket} label="Games" active={activeTab === 'Games'} onClick={() => setActiveTab('Games')} />
+                    <NavItem icon={Layers} label="Apps" active={activeTab === 'Apps'} onClick={() => setActiveTab('Apps')} />
+                    <NavItem icon={Gamepad2} label="Arcade" active={activeTab === 'Arcade'} onClick={() => setActiveTab('Arcade')} />
+                  </>
+                ) : (
+                  <>
+                    <NavItem icon={Rocket} label="Games" active={activeTab === 'Games'} onClick={() => setActiveTab('Games')} />
+                    <NavItem icon={Layers} label="Apps" active={activeTab === 'Apps'} onClick={() => setActiveTab('Apps')} />
+                    <NavItem icon={Gamepad2} label="Arcade" active={activeTab === 'Arcade'} onClick={() => setActiveTab('Arcade')} />
+                    <NavItem icon={Plus} label="Publish" active={activeTab === 'Publish'} onClick={() => setActiveTab('Publish')} />
+                    <NavItem icon={User} label="Users" active={activeTab === 'Users'} onClick={() => setActiveTab('Users')} />
+                    <NavItem icon={Lock} label="Settings" active={activeTab === 'Settings'} onClick={() => setActiveTab('Settings')} />
+                  </>
+                )}
+             </div>
+             <button onClick={() => setActiveTab('Search')} className={`w-[68px] h-[68px] bg-white/95 backdrop-blur-2xl shadow-xl shadow-black/10 border border-gray-100 rounded-full flex items-center justify-center transition-colors ${activeTab === 'Search' ? 'bg-gray-100' : ''}`}>
+                <Search size={32} strokeWidth={2.5} className={activeTab === 'Search' ? "text-blue-500" : "text-gray-900"} />
+             </button>
+          </div>
         </div>
 
         {/* Account Modal */}
@@ -191,6 +210,9 @@ export default function App() {
               balance={userBalance}
               saveBalance={saveUserBalance}
               globalSettings={globalSettings} saveGlobalSettings={saveGlobalSettings}
+              isAdminAuthenticated={isAdminAuthenticated}
+              setIsAdminAuthenticated={setIsAdminAuthenticated}
+              setActiveTab={setActiveTab}
             />
           )}
         </AnimatePresence>
@@ -260,11 +282,23 @@ export default function App() {
                   </div>
                 </div>
                 
-                <div className="w-full py-4 px-5 border-t border-b border-gray-200 text-sm text-gray-500 bg-white mb-6">
-                  Account: <span className="text-gray-900">{currentUser?.email || currentUser?.username || 'user@icloud.com'}</span>
+                <div className="w-full border-t border-gray-200 bg-white">
+                  <div className="px-5 py-4 flex justify-between items-center border-b border-gray-100">
+                    <div>
+                       <p className="font-bold text-gray-900 text-lg">{(!confirmingApp.price || confirmingApp.price === 'Free') ? 'Free' : confirmingApp.price}</p>
+                       <p className="text-sm text-gray-500">{(!confirmingApp.price || confirmingApp.price === 'Free') ? 'App' : 'One-time charge'}</p>
+                    </div>
+                  </div>
+                  <div className="px-5 py-4 flex justify-between items-center border-b border-gray-100 text-sm font-medium text-gray-900 cursor-pointer hover:bg-gray-50">
+                     <span>You are purchasing a license. See license details.</span>
+                     <ChevronRight size={16} className="text-gray-400" />
+                  </div>
+                  <div className="px-5 py-4 text-sm text-gray-500 border-b border-gray-200">
+                    Account: <span className="text-gray-900">{currentUser?.email || currentUser?.name || 'user@icloud.com'}</span>
+                  </div>
                 </div>
                 
-                <div className="mt-2 flex flex-col items-center w-full pb-8">
+                <div className="mt-6 flex flex-col items-center w-full pb-8">
                   <button 
                     onDoubleClick={() => {
                       setIsConfirmingDownload(true);
@@ -289,11 +323,11 @@ export default function App() {
 
                 {/* Double-click text hovering */}
                 <div className="absolute top-28 right-4 flex flex-col items-end pointer-events-none z-50 text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
-                  <div className="font-bold text-lg whitespace-nowrap">
+                  <div className="font-bold text-xl whitespace-nowrap">
                     Double-Click
                   </div>
-                  <div className="font-bold text-lg whitespace-nowrap">
-                    to Install
+                  <div className="font-bold text-xl whitespace-nowrap">
+                    to {(!confirmingApp?.price || confirmingApp?.price === 'Free') ? 'Install' : 'Pay'}
                   </div>
                   <div className="w-8 h-1 bg-white mt-2 rounded-full relative">
                      <div className="absolute right-0 top-1/2 -translate-y-1/2 border-t-4 border-b-4 border-l-[6px] border-t-transparent border-b-transparent border-l-white"></div>
@@ -327,9 +361,9 @@ export default function App() {
 
 function NavItem({ icon: Icon, label, active, onClick }: any) {
   return (
-    <button onClick={onClick} className={`flex flex-col items-center gap-1 ${active ? 'text-blue-500' : 'text-gray-400'} px-4`}>
-      <Icon size={24} className={active ? "fill-blue-500 text-blue-500" : "text-gray-400"} />
-      <span className="text-[10px] font-semibold">{label}</span>
+    <button onClick={onClick} className={`flex flex-col items-center justify-center gap-1 min-w-[72px] px-2 py-1 rounded-[1.75rem] transition-colors ${active ? 'bg-[#E5E5EA] text-blue-500' : 'text-black'}`}>
+      <Icon size={28} strokeWidth={2.5} className={active ? "text-blue-500" : "text-black"} />
+      <span className={`text-[11px] ${active ? 'font-bold' : 'font-semibold'}`}>{label}</span>
     </button>
   );
 }
@@ -384,6 +418,10 @@ function StoreFront({ apps, tab, onDownload, downloadingId, downloadProgress, do
   let displayApps = apps;
   if (tab === 'Games') displayApps = apps.filter((a: AppEntry) => a.category === 'Game');
   if (tab === 'Apps') displayApps = apps.filter((a: AppEntry) => a.category === 'App');
+  if (tab === 'Arcade') {
+    const arcadeOnly = apps.filter((a: AppEntry) => a.category === 'Arcade');
+    displayApps = arcadeOnly.length > 0 ? arcadeOnly : apps.filter((a: AppEntry) => a.category === 'Game' || a.category === 'Arcade');
+  }
   if (tab === 'Search') {
     displayApps = apps.filter((a: AppEntry) => a.name.toLowerCase().includes(searchQuery.toLowerCase()) || a.developer?.toLowerCase().includes(searchQuery.toLowerCase()));
   }
@@ -398,7 +436,13 @@ function StoreFront({ apps, tab, onDownload, downloadingId, downloadProgress, do
           <h1 className="text-3xl font-black">{tab}</h1>
         </div>
         <button onClick={onAccountClick} className="w-9 h-9 bg-gray-100 rounded-full flex items-center justify-center overflow-hidden hover:bg-gray-200 transition-colors">
-          <User size={20} className={currentUser ? 'text-blue-500' : 'text-gray-400'} />
+          {currentUser ? (
+            <span className="text-[14px] font-bold text-gray-700">
+              {currentUser.name ? currentUser.name.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase() : currentUser.email.substring(0, 2).toUpperCase()}
+            </span>
+          ) : (
+            <User size={20} className="text-gray-400" />
+          )}
         </button>
       </div>
 
@@ -452,6 +496,29 @@ function StoreFront({ apps, tab, onDownload, downloadingId, downloadProgress, do
 
 function AppDetails({ app, onClose, onDownload, downloadingId, downloadProgress, downloadedApps, purchaseLibrary, onDeveloperClick }: any) {
   const [fullscreenScreenshot, setFullscreenScreenshot] = React.useState<string | null>(null);
+  const [showVersionHistoryModal, setShowVersionHistoryModal] = React.useState(false);
+  const [isWhatsNewExpanded, setIsWhatsNewExpanded] = React.useState(false);
+  const [isDescriptionExpanded, setIsDescriptionExpanded] = React.useState(false);
+
+  // Derive version history list
+  const versionHistoryList = (app.versionHistory && app.versionHistory.length > 0)
+    ? app.versionHistory
+    : [
+        { 
+          version: app.version || '1.0.0', 
+          date: app.versionDate || '1w ago', 
+          notes: app.whatsNew || 'General bug fixes and performance improvements.' 
+        },
+        { 
+          version: '0.9.0', 
+          date: '1m ago', 
+          notes: 'Beta release with core features and UI enhancements.' 
+        }
+      ];
+
+  const latestVersion = versionHistoryList[0];
+  const whatsNewNotes = app.whatsNew || latestVersion?.notes || 'Bug fixes and performance improvements.';
+
   return (
     <motion.div 
       initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
@@ -468,7 +535,39 @@ function AppDetails({ app, onClose, onDownload, downloadingId, downloadProgress,
             <img src={fullscreenScreenshot} className="max-w-full max-h-[90vh] object-contain rounded-xl" />
           </motion.div>
         )}
+
+        {/* Version History Sheet / Modal */}
+        {showVersionHistoryModal && (
+          <motion.div
+            initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
+            transition={{ type: 'spring', damping: 28, stiffness: 300 }}
+            className="fixed inset-0 z-[100] bg-white flex flex-col"
+          >
+            <div className="sticky top-0 bg-white/90 backdrop-blur-md px-5 py-4 border-b border-gray-100 flex items-center justify-between z-10">
+              <h2 className="text-xl font-bold text-gray-900 tracking-tight">Version History</h2>
+              <button 
+                onClick={() => setShowVersionHistoryModal(false)}
+                className="px-4 py-1.5 bg-gray-100 text-blue-600 font-bold text-sm rounded-full active:scale-95 transition-transform"
+              >
+                Done
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-5 py-6 space-y-6">
+              {versionHistoryList.map((v: any, idx: number) => (
+                <div key={idx} className="border-b border-gray-100 pb-6 last:border-0 last:pb-0">
+                  <div className="flex justify-between items-baseline mb-2">
+                    <h3 className="font-bold text-base text-gray-900">Version {v.version}</h3>
+                    <span className="text-xs text-gray-400 font-medium">{v.date}</span>
+                  </div>
+                  <p className="text-sm leading-relaxed text-gray-700 whitespace-pre-wrap">{v.notes}</p>
+                </div>
+              ))}
+            </div>
+          </motion.div>
+        )}
       </AnimatePresence>
+
       <div className="absolute top-0 inset-x-0 h-16 bg-white/80 backdrop-blur-md z-10 flex items-center px-4 border-b border-gray-100">
         <button onClick={onClose} className="flex items-center text-blue-500 font-medium">
           <ChevronLeft size={24} className="-ml-1" />
@@ -511,18 +610,76 @@ function AppDetails({ app, onClose, onDownload, downloadingId, downloadProgress,
            </div>
         </div>
 
+        {/* What's New Section with Version History & More */}
+        <div className="mb-6 pb-6 border-b border-gray-100">
+          <div className="flex justify-between items-baseline mb-2">
+            <h3 className="font-bold text-xl text-gray-900 tracking-tight">What's New</h3>
+            <button 
+              onClick={() => setShowVersionHistoryModal(true)}
+              className="text-blue-500 font-medium text-sm hover:underline flex items-center gap-0.5"
+            >
+              Version History <ChevronRight size={16} />
+            </button>
+          </div>
+          <div className="flex justify-between items-baseline mb-2">
+            <span className="text-xs text-gray-400 font-medium">Version {latestVersion?.version || app.version || '1.0.0'}</span>
+            <span className="text-xs text-gray-400 font-medium">{latestVersion?.date || app.versionDate || '1w ago'}</span>
+          </div>
+          <div className="relative">
+            <p className={`text-sm leading-relaxed text-gray-800 ${!isWhatsNewExpanded ? 'line-clamp-2' : ''}`}>
+              {whatsNewNotes}
+            </p>
+            {!isWhatsNewExpanded && whatsNewNotes.length > 50 && (
+              <button 
+                onClick={() => setIsWhatsNewExpanded(true)}
+                className="text-blue-500 font-semibold text-xs mt-1 hover:underline focus:outline-none"
+              >
+                more
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Video Preview */}
+        {app.videoUrl && (
+          <div className="mb-8">
+            <h3 className="font-bold text-lg text-gray-900 tracking-tight mb-3 flex items-center gap-2">
+              <Video size={18} className="text-purple-600" /> Preview Video
+            </h3>
+            <div className="rounded-2xl overflow-hidden bg-black shadow-md border border-gray-100 relative group">
+              <video 
+                src={app.videoUrl} 
+                controls 
+                playsInline 
+                className="w-full max-h-[320px] object-contain mx-auto" 
+              />
+            </div>
+          </div>
+        )}
+
         {app.screenshots && app.screenshots.length > 0 && (
           <div className="mb-8">
+            <h3 className="font-bold text-lg text-gray-900 tracking-tight mb-3">Screenshots</h3>
             <div className="flex gap-3 overflow-x-auto no-scrollbar snap-x snap-mandatory pb-4 -mx-5 px-5">
               {app.screenshots.map((s: string, i: number) => (
-                <img key={i} src={s} alt="Screenshot" onClick={() => setFullscreenScreenshot(s)} className="w-[200px] h-[350px] object-cover rounded-2xl border border-gray-100 snap-center shadow-sm shrink-0 bg-gray-100 cursor-pointer" />
+                <img key={i} src={s} alt={`Screenshot ${i + 1}`} onClick={() => setFullscreenScreenshot(s)} className="w-[200px] h-[350px] object-cover rounded-2xl border border-gray-100 snap-center shadow-sm shrink-0 bg-gray-100 cursor-pointer hover:opacity-95 transition-opacity" />
               ))}
             </div>
           </div>
         )}
 
-        <div className="mb-8">
-          <p className="text-[15px] leading-relaxed text-gray-700 whitespace-pre-wrap">{app.description || 'No description available.'}</p>
+        <div className="mb-8 relative">
+          <p className={`text-[15px] leading-relaxed text-gray-700 whitespace-pre-wrap ${!isDescriptionExpanded ? 'line-clamp-3' : ''}`}>
+            {app.description || 'No description available.'}
+          </p>
+          {!isDescriptionExpanded && (app.description?.length || 0) > 120 && (
+            <button 
+              onClick={() => setIsDescriptionExpanded(true)}
+              className="text-blue-500 font-semibold text-sm mt-1.5 hover:underline focus:outline-none"
+            >
+              more
+            </button>
+          )}
         </div>
 
         <div className="space-y-3 pt-6 border-t border-gray-100">
@@ -555,7 +712,7 @@ function AppDetails({ app, onClose, onDownload, downloadingId, downloadProgress,
 
 // ---- Modals & Admin Below ----
 
-function AccountModal({ onClose, currentUser, saveCurrentUser, allUsers, balance, saveBalance, apps, downloadedApps, onDownload, downloadingId, downloadProgress, purchaseLibrary, globalSettings, saveGlobalSettings }: any) {
+function AccountModal({ onClose, currentUser, saveCurrentUser, allUsers, balance, saveBalance, apps, downloadedApps, onDownload, downloadingId, downloadProgress, purchaseLibrary, globalSettings, saveGlobalSettings, isAdminAuthenticated, setIsAdminAuthenticated, setActiveTab }: any) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [addBalancePassword, setAddBalancePassword] = useState('');
@@ -564,6 +721,21 @@ function AccountModal({ onClose, currentUser, saveCurrentUser, allUsers, balance
   const [showApps, setShowApps] = useState(false);
   const [appTab, setAppTab] = useState<'All' | 'Not'>('All');
   const [searchQuery, setSearchQuery] = useState('');
+  const [adminPasswordInput, setAdminPasswordInput] = useState('');
+  const [showAdminUnlock, setShowAdminUnlock] = useState(false);
+
+  const handleAdminUnlock = (e: React.FormEvent) => {
+    e.preventDefault();
+    const correctCode = globalSettings?.adminCode || '1234';
+    if (adminPasswordInput === correctCode) {
+      setIsAdminAuthenticated(true);
+      setAdminPasswordInput('');
+      setShowAdminUnlock(false);
+      alert('Admin Mode Unlocked successfully!');
+    } else {
+      alert('Incorrect Admin Password');
+    }
+  };
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -755,32 +927,86 @@ function AccountModal({ onClose, currentUser, saveCurrentUser, allUsers, balance
       
       <div className="flex-1 overflow-y-auto px-4 pb-12">
         {!currentUser ? (
-          <form onSubmit={handleLogin} className="space-y-4 pt-12">
-            <div className="text-center mb-8">
-              <div className="w-20 h-20 bg-blue-500 rounded-[24px] mx-auto flex items-center justify-center shadow-lg shadow-blue-500/30 mb-6">
-                <User className="text-white" size={40} />
+          <div className="space-y-6 pt-12">
+            <form onSubmit={handleLogin} className="space-y-4">
+              <div className="text-center mb-8">
+                <div className="w-20 h-20 bg-blue-500 rounded-[24px] mx-auto flex items-center justify-center shadow-lg shadow-blue-500/30 mb-6">
+                  <User className="text-white" size={40} />
+                </div>
+                <h2 className="text-[22px] font-bold text-gray-900">Sign in to Apple ID</h2>
               </div>
-              <h2 className="text-[22px] font-bold text-gray-900">Sign in to Apple ID</h2>
+              <input 
+                type="email" placeholder="Apple ID" required
+                className="w-full p-4 bg-white rounded-xl outline-none border border-gray-200 focus:ring-2 focus:ring-blue-500/20 text-[15px]"
+                value={email} onChange={e => setEmail(e.target.value)}
+              />
+              <input 
+                type="password" placeholder="Password" required
+                className="w-full p-4 bg-white rounded-xl outline-none border border-gray-200 focus:ring-2 focus:ring-blue-500/20 text-[15px]"
+                value={password} onChange={e => setPassword(e.target.value)}
+              />
+              <button type="submit" className="w-full py-4 bg-blue-500 text-white font-bold rounded-xl mt-6 active:scale-95 transition-all text-[15px]">Sign In</button>
+            </form>
+
+            {/* Admin Access Card for Signed-out mode */}
+            <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-200 space-y-3 mt-8">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5 text-gray-900 font-bold text-sm">
+                  <div className="w-7 h-7 rounded-lg bg-black text-white flex items-center justify-center">
+                    <Lock size={14} />
+                  </div>
+                  <span>Admin Console</span>
+                </div>
+                {isAdminAuthenticated ? (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-green-100 text-green-700 rounded-full text-xs font-bold">
+                    Active
+                  </span>
+                ) : (
+                  <span className="text-xs text-gray-400 font-normal">Locked</span>
+                )}
+              </div>
+
+              {!isAdminAuthenticated ? (
+                <form onSubmit={handleAdminUnlock} className="space-y-3 pt-1">
+                  <p className="text-xs text-gray-500">Enter Admin password to manage apps, users, and store settings.</p>
+                  <div className="flex gap-2">
+                    <input
+                      type="password"
+                      placeholder="Admin Password"
+                      value={adminPasswordInput}
+                      onChange={e => setAdminPasswordInput(e.target.value)}
+                      className="flex-1 p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none text-sm font-medium focus:ring-2 focus:ring-black/10"
+                    />
+                    <button type="submit" className="px-4 bg-black text-white rounded-xl font-bold text-xs hover:bg-gray-800 transition-colors">
+                      Unlock
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                <div className="space-y-3 pt-1">
+                  <p className="text-xs text-green-600 font-medium">Administrator Console Unlocked.</p>
+                  <div className="grid grid-cols-3 gap-2">
+                    <button onClick={() => { setActiveTab?.('Publish'); onClose(); }} className="p-2.5 bg-gray-50 hover:bg-gray-100 rounded-xl text-xs font-bold text-gray-800 flex flex-col items-center gap-1 transition-colors">
+                      <Plus size={16} className="text-blue-500" /> Publish
+                    </button>
+                    <button onClick={() => { setActiveTab?.('Users'); onClose(); }} className="p-2.5 bg-gray-50 hover:bg-gray-100 rounded-xl text-xs font-bold text-gray-800 flex flex-col items-center gap-1 transition-colors">
+                      <User size={16} className="text-purple-500" /> Users
+                    </button>
+                    <button onClick={() => { setActiveTab?.('Settings'); onClose(); }} className="p-2.5 bg-gray-50 hover:bg-gray-100 rounded-xl text-xs font-bold text-gray-800 flex flex-col items-center gap-1 transition-colors">
+                      <Lock size={16} className="text-amber-500" /> Settings
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
-            <input 
-              type="email" placeholder="Apple ID" required
-              className="w-full p-4 bg-white rounded-xl outline-none border border-gray-200 focus:ring-2 focus:ring-blue-500/20 text-[15px]"
-              value={email} onChange={e => setEmail(e.target.value)}
-            />
-            <input 
-              type="password" placeholder="Password" required
-              className="w-full p-4 bg-white rounded-xl outline-none border border-gray-200 focus:ring-2 focus:ring-blue-500/20 text-[15px]"
-              value={password} onChange={e => setPassword(e.target.value)}
-            />
-            <button type="submit" className="w-full py-4 bg-blue-500 text-white font-bold rounded-xl mt-6 active:scale-95 transition-all text-[15px]">Sign In</button>
-          </form>
+          </div>
         ) : (
           <div className="space-y-5">
             {/* Profile Card */}
             <div className="bg-white rounded-2xl overflow-hidden shadow-sm">
                <div className="p-4 flex items-center gap-4 border-b border-gray-100">
                   <div className="w-[60px] h-[60px] rounded-full bg-[#8E9BCE] text-white flex items-center justify-center font-semibold text-[22px] tracking-wide">
-                    {currentUser.name.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase()}
+                    {currentUser.name ? currentUser.name.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase() : currentUser.email.substring(0, 2).toUpperCase()}
                   </div>
                   <div>
                     <h3 className="font-bold text-[17px] text-gray-900 leading-tight">{currentUser.name.toUpperCase()}</h3>
@@ -796,6 +1022,82 @@ function AccountModal({ onClose, currentUser, saveCurrentUser, allUsers, balance
                   </div>
                   <span className="text-gray-400 text-[12px] font-bold uppercase tracking-wide">{currentUser.name.split(' ')[0]} ↗</span>
                </div>
+            </div>
+
+            {/* Admin Console Card */}
+            <div className="bg-white rounded-2xl overflow-hidden shadow-sm text-[15px] font-medium border border-gray-100">
+               <div className="p-4 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
+                 <div className="flex items-center gap-2.5 font-bold text-gray-900">
+                   <div className="w-7 h-7 rounded-lg bg-black text-white flex items-center justify-center">
+                     <Lock size={14} />
+                   </div>
+                   <span>Admin Console</span>
+                 </div>
+                 {isAdminAuthenticated ? (
+                   <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-green-50 text-green-700 rounded-full text-xs font-bold border border-green-200">
+                     <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                     Active
+                   </span>
+                 ) : (
+                   <span className="text-xs text-gray-400 font-normal">Locked</span>
+                 )}
+               </div>
+
+               {!isAdminAuthenticated ? (
+                 <div className="p-4 space-y-3">
+                   <p className="text-xs text-gray-500">Unlock to publish apps, manage users, and adjust global settings.</p>
+                   {showAdminUnlock ? (
+                     <form onSubmit={handleAdminUnlock} className="flex gap-2">
+                       <input
+                         type="password"
+                         placeholder="Enter Admin Password"
+                         value={adminPasswordInput}
+                         onChange={e => setAdminPasswordInput(e.target.value)}
+                         className="flex-1 p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none text-sm font-medium focus:ring-2 focus:ring-black/10"
+                       />
+                       <button type="submit" className="px-4 bg-black text-white rounded-xl font-bold text-xs hover:bg-gray-800 transition-colors">
+                         Unlock
+                       </button>
+                     </form>
+                   ) : (
+                     <button 
+                       onClick={() => setShowAdminUnlock(true)}
+                       className="w-full py-3 bg-black text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 hover:bg-gray-800 transition-colors"
+                     >
+                       <Unlock size={14} /> Unlock Admin Console
+                     </button>
+                   )}
+                 </div>
+               ) : (
+                 <div className="p-2 space-y-1">
+                   <button onClick={() => { setActiveTab?.('Publish'); onClose(); }} className="w-full flex items-center justify-between p-3 rounded-xl hover:bg-gray-50 text-left transition-colors">
+                     <div className="flex items-center gap-3 text-gray-900 font-semibold text-sm">
+                       <Plus size={18} className="text-blue-500" />
+                       <span>Publish & Edit Apps</span>
+                     </div>
+                     <ChevronRight size={18} className="text-gray-300" />
+                   </button>
+                   <button onClick={() => { setActiveTab?.('Users'); onClose(); }} className="w-full flex items-center justify-between p-3 rounded-xl hover:bg-gray-50 text-left transition-colors">
+                     <div className="flex items-center gap-3 text-gray-900 font-semibold text-sm">
+                       <User size={18} className="text-purple-500" />
+                       <span>User Management</span>
+                     </div>
+                     <ChevronRight size={18} className="text-gray-300" />
+                   </button>
+                   <button onClick={() => { setActiveTab?.('Settings'); onClose(); }} className="w-full flex items-center justify-between p-3 rounded-xl hover:bg-gray-50 text-left transition-colors">
+                     <div className="flex items-center gap-3 text-gray-900 font-semibold text-sm">
+                       <Lock size={18} className="text-amber-500" />
+                       <span>Global Settings & Codes</span>
+                     </div>
+                     <ChevronRight size={18} className="text-gray-300" />
+                   </button>
+                   <div className="pt-2 border-t border-gray-100 px-1">
+                     <button onClick={() => setIsAdminAuthenticated(false)} className="w-full py-2 text-center text-xs font-bold text-red-500 hover:bg-red-50 rounded-xl transition-colors">
+                       Lock Admin Console
+                     </button>
+                   </div>
+                 </div>
+               )}
             </div>
 
             {/* List 1 */}
@@ -909,6 +1211,8 @@ function AdminPage({ apps, saveApps, allUsers, saveAllUsers, isAuthenticated, se
         const base64 = await toBase64(file);
         if (field === 'iconUrl') {
           setAppForm({ ...appForm, iconUrl: base64 });
+        } else if (field === 'videoUrl') {
+          setAppForm({ ...appForm, videoUrl: base64 });
         } else if (field === 'downloadUrl') {
           const sizeMB = (file.size / (1024 * 1024)).toFixed(1) + ' MB';
           const nameWithoutExt = file.name.replace(/\.[^/.]+$/, "");
@@ -992,6 +1296,7 @@ function AdminPage({ apps, saveApps, allUsers, saveAllUsers, isAuthenticated, se
                <select className="w-full p-3 bg-gray-50 rounded-xl outline-none focus:ring-2 focus:ring-blue-500/20 font-medium" value={appForm.category || 'App'} onChange={e => setAppForm({...appForm, category: e.target.value as AppCategory})}>
                  <option value="App">App</option>
                  <option value="Game">Game</option>
+                 <option value="Arcade">Arcade</option>
                </select>
             </div>
 
@@ -1010,20 +1315,106 @@ function AdminPage({ apps, saveApps, allUsers, saveAllUsers, isAuthenticated, se
                <input placeholder="Or enter Icon URL" className="w-full p-3 bg-gray-50 rounded-xl outline-none focus:ring-2 focus:ring-blue-500/20 mt-3 text-sm" value={appForm.iconUrl || ''} onChange={e => setAppForm({...appForm, iconUrl: e.target.value})} />
             </div>
 
-            <div className="pt-2 pb-1 border-t border-gray-100">
+            {/* Video Preview (1 File) */}
+            <div className="pt-3 pb-2 border-t border-gray-100">
+               <label className="text-xs font-bold text-gray-500 uppercase flex items-center justify-between mb-2">
+                 <span className="flex items-center gap-1.5"><Video size={14} className="text-purple-600" /> App Preview Video (1 File)</span>
+                 {appForm.videoUrl && (
+                   <button 
+                     type="button"
+                     onClick={() => setAppForm({ ...appForm, videoUrl: '' })} 
+                     className="text-red-500 hover:underline text-xs font-semibold"
+                   >
+                     Remove Video
+                   </button>
+                 )}
+               </label>
+               <div className="flex items-center gap-4 mt-2">
+                  {appForm.videoUrl ? (
+                    <div className="w-20 h-14 bg-black rounded-xl overflow-hidden border border-gray-200 flex items-center justify-center shrink-0 relative">
+                      <video src={appForm.videoUrl} className="w-full h-full object-cover" muted />
+                      <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
+                        <Video size={16} className="text-white" />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="w-20 h-14 bg-gray-100 rounded-xl flex items-center justify-center border border-dashed border-gray-300 shrink-0">
+                      <Video size={20} className="text-gray-400" />
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <input 
+                      type="file" 
+                      accept="video/*" 
+                      onChange={(e) => handleFileUpload(e, 'videoUrl')} 
+                      className="text-xs w-full file:mr-3 file:py-1.5 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100 transition-all cursor-pointer" 
+                    />
+                  </div>
+               </div>
+               <input 
+                 placeholder="Or enter Video URL (e.g. https://.../preview.mp4)" 
+                 className="w-full p-2.5 bg-gray-50 rounded-xl outline-none focus:ring-2 focus:ring-blue-500/20 mt-3 text-xs font-medium" 
+                 value={appForm.videoUrl || ''} 
+                 onChange={e => setAppForm({...appForm, videoUrl: e.target.value})} 
+               />
+            </div>
+
+            {/* Screenshots (1-3 Files) */}
+            <div className="pt-3 pb-2 border-t border-gray-100">
                <label className="text-xs font-bold text-gray-500 uppercase mb-2 block">Screenshots (1-3 Files)</label>
-               {[0, 1, 2].map((index) => (
-                 <div key={index} className="flex items-center gap-4 mb-3">
-                   {appForm.screenshots && appForm.screenshots[index] ? (
-                     <img src={appForm.screenshots[index]} alt="Screenshot" className="w-10 h-16 rounded-md object-cover border border-gray-200" />
-                   ) : (
-                     <div className="w-10 h-16 bg-gray-100 rounded-md flex items-center justify-center border border-dashed border-gray-300">
-                       <ImageIcon size={16} className="text-gray-400" />
+               <div className="space-y-3">
+                 {[0, 1, 2].map((index) => {
+                   const screenshotUrl = appForm.screenshots && appForm.screenshots[index];
+                   return (
+                     <div key={index} className="p-3 bg-gray-50 rounded-xl border border-gray-100 space-y-2">
+                       <div className="flex items-center justify-between">
+                         <span className="text-xs font-bold text-gray-600">Screenshot #{index + 1}</span>
+                         {screenshotUrl && (
+                           <button 
+                             type="button"
+                             onClick={() => {
+                               const newScreenshots = [...(appForm.screenshots || [])];
+                               newScreenshots[index] = '';
+                               setAppForm({ ...appForm, screenshots: newScreenshots });
+                             }}
+                             className="text-red-500 hover:bg-red-50 p-1 rounded-full text-xs"
+                             title="Clear screenshot"
+                           >
+                             <X size={14} />
+                           </button>
+                         )}
+                       </div>
+                       <div className="flex items-center gap-3">
+                         {screenshotUrl ? (
+                           <img src={screenshotUrl} alt={`Screenshot ${index + 1}`} className="w-10 h-16 rounded-md object-cover border border-gray-200 shrink-0" />
+                         ) : (
+                           <div className="w-10 h-16 bg-white rounded-md flex items-center justify-center border border-dashed border-gray-300 shrink-0">
+                             <ImageIcon size={16} className="text-gray-400" />
+                           </div>
+                         )}
+                         <div className="flex-1 min-w-0 space-y-2">
+                           <input 
+                             type="file" 
+                             accept="image/*" 
+                             onChange={(e) => handleFileUpload(e, 'screenshot', index)} 
+                             className="text-xs w-full file:mr-2 file:py-1 file:px-2.5 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer" 
+                           />
+                           <input 
+                             placeholder={`Or Image URL #${index + 1}`} 
+                             className="w-full p-2 bg-white rounded-lg outline-none border border-gray-200 text-xs focus:border-blue-500" 
+                             value={screenshotUrl || ''} 
+                             onChange={e => {
+                               const newScreenshots = [...(appForm.screenshots || [])];
+                               newScreenshots[index] = e.target.value;
+                               setAppForm({ ...appForm, screenshots: newScreenshots });
+                             }} 
+                           />
+                         </div>
+                       </div>
                      </div>
-                   )}
-                   <input type="file" accept="image/*" onChange={(e) => handleFileUpload(e, 'screenshot', index)} className="text-sm file:mr-4 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer" />
-                 </div>
-               ))}
+                   );
+                 })}
+               </div>
             </div>
 
             <div className="pt-2 pb-1 border-t border-gray-100">
@@ -1031,6 +1422,52 @@ function AdminPage({ apps, saveApps, allUsers, saveAllUsers, isAuthenticated, se
                <input placeholder="Enter Website/Download Link" className="w-full p-3 bg-gray-50 rounded-xl outline-none focus:ring-2 focus:ring-blue-500/20 mt-2" value={appForm.externalLink || ''} onChange={e => setAppForm({...appForm, externalLink: e.target.value})} />
                <p className="text-xs text-gray-400 font-medium text-center my-2">OR</p>
                <input type="file" onChange={(e) => handleFileUpload(e, 'downloadUrl')} className="w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-bold file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200 transition-all cursor-pointer" />
+            </div>
+
+            <div className="pt-4 pb-2 border-t border-gray-100">
+               <label className="text-xs font-bold text-gray-500 uppercase flex justify-between items-center mb-3">
+                 Version History
+                 <button 
+                   onClick={() => {
+                     const newVersions = [...(appForm.versionHistory || [])];
+                     newVersions.unshift({ version: '1.0.0', date: 'Just now', notes: 'Initial release' });
+                     setAppForm({...appForm, versionHistory: newVersions});
+                   }}
+                   className="px-3 py-1 bg-blue-50 text-blue-600 rounded-full hover:bg-blue-100 transition-colors normal-case"
+                 >+ Add Version</button>
+               </label>
+               
+               <div className="space-y-4">
+                 {(appForm.versionHistory || []).map((v: any, idx: number) => (
+                   <div key={idx} className="p-3 bg-gray-50 rounded-xl border border-gray-200 relative">
+                     <button 
+                       onClick={() => {
+                         const newVersions = [...appForm.versionHistory!];
+                         newVersions.splice(idx, 1);
+                         setAppForm({...appForm, versionHistory: newVersions});
+                       }}
+                       className="absolute top-2 right-2 w-6 h-6 bg-red-100 text-red-500 rounded-full flex items-center justify-center hover:bg-red-200"
+                     ><X size={14} /></button>
+                     <div className="flex gap-2 mb-2 pr-8">
+                       <input placeholder="Version (e.g. 1.0.0)" className="w-1/2 p-2 bg-white rounded-lg outline-none border border-gray-200 text-sm focus:border-blue-500" value={v.version} onChange={e => {
+                         const newVersions = [...appForm.versionHistory!];
+                         newVersions[idx].version = e.target.value;
+                         setAppForm({...appForm, versionHistory: newVersions});
+                       }} />
+                       <input placeholder="Date (e.g. 2d ago)" className="w-1/2 p-2 bg-white rounded-lg outline-none border border-gray-200 text-sm focus:border-blue-500" value={v.date} onChange={e => {
+                         const newVersions = [...appForm.versionHistory!];
+                         newVersions[idx].date = e.target.value;
+                         setAppForm({...appForm, versionHistory: newVersions});
+                       }} />
+                     </div>
+                     <textarea placeholder="Release notes" className="w-full p-2 bg-white rounded-lg outline-none border border-gray-200 text-sm focus:border-blue-500 min-h-[60px]" value={v.notes} onChange={e => {
+                       const newVersions = [...appForm.versionHistory!];
+                       newVersions[idx].notes = e.target.value;
+                       setAppForm({...appForm, versionHistory: newVersions});
+                     }} />
+                   </div>
+                 ))}
+               </div>
             </div>
 
             <button onClick={handleSaveApp} className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-xl active:scale-95 transition-all uppercase tracking-wider mt-4">
@@ -1046,7 +1483,23 @@ function AdminPage({ apps, saveApps, allUsers, saveAllUsers, isAuthenticated, se
                   <img src={a.iconUrl} className="w-12 h-12 rounded-lg object-cover" />
                   <div>
                     <p className="font-bold text-sm text-gray-900">{a.name}</p>
-                    <p className="text-xs text-gray-500">{a.category} • {a.price || 'Free'}</p>
+                    <p className="text-xs text-gray-500 flex items-center gap-1.5 mt-0.5">
+                      {a.category === 'Arcade' ? (
+                        <span className="inline-flex items-center gap-1 bg-red-50 text-red-600 px-2 py-0.5 rounded-md font-bold text-[10px]">
+                          <Gamepad2 size={12} /> Arcade
+                        </span>
+                      ) : a.category === 'Game' ? (
+                        <span className="inline-flex items-center gap-1 bg-purple-50 text-purple-600 px-2 py-0.5 rounded-md font-bold text-[10px]">
+                          <Rocket size={12} /> Game
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 bg-blue-50 text-blue-600 px-2 py-0.5 rounded-md font-bold text-[10px]">
+                          <Layers size={12} /> App
+                        </span>
+                      )}
+                      <span>•</span>
+                      <span>{a.price || 'Free'}</span>
+                    </p>
                   </div>
                 </div>
                 <div className="flex gap-1">
