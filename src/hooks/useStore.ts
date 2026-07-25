@@ -18,6 +18,7 @@ export function useStore() {
   const [allUsers, setAllUsers] = useState<UserEntry[]>([]);
   const [downloadedApps, setDownloadedApps] = useState<Set<string>>(new Set());
   const [purchaseLibrary, setPurchaseLibrary] = useState<Set<string>>(new Set());
+  const [updatedApps, setUpdatedApps] = useState<Record<string, number>>({});
   const [userBalance, setUserBalance] = useState<number>(0);
   const [currentUser, setCurrentUser] = useState<UserEntry | null>(null);
   const [globalSettings, setGlobalSettings] = useState<{ adminCode: string; moneyCode: string; moneyCodes?: { code: string; amount: number }[] }>({
@@ -70,13 +71,15 @@ export function useStore() {
         const data = snapshot.data();
         setDownloadedApps(new Set(data.downloadedApps || []));
         setPurchaseLibrary(new Set(data.purchaseLibrary || []));
+        setUpdatedApps(data.updatedApps || {});
         setUserBalance(data.balance || 0);
       } else {
         // Initialize settings if they don't exist
         setDoc(doc(db, 'users', currentUser.id, 'settings', 'default'), {
           balance: 0,
           downloadedApps: [],
-          purchaseLibrary: []
+          purchaseLibrary: [],
+          updatedApps: {}
         });
       }
     });
@@ -98,6 +101,10 @@ export function useStore() {
     });
     return () => unsubscribe();
   }, []);
+
+  const updateApp = async (app: AppEntry) => {
+    await setDoc(doc(db, 'apps', app.id), app);
+  };
 
   const saveApps = async (newApps: AppEntry[]) => {
     // In Firestore, we update individual docs or use batch. 
@@ -136,6 +143,14 @@ export function useStore() {
     });
   };
 
+  const saveUpdatedApps = async (newUpdatedApps: Record<string, number>) => {
+    if (!currentUser) return;
+    setUpdatedApps(newUpdatedApps);
+    await updateDoc(doc(db, 'users', currentUser.id, 'settings', 'default'), {
+      updatedApps: newUpdatedApps
+    });
+  };
+
   const saveUserBalance = async (newBalance: number) => {
     if (!currentUser) return;
     setUserBalance(newBalance);
@@ -165,10 +180,11 @@ export function useStore() {
   }, []);
 
   return {
-    apps, saveApps,
+    apps, saveApps, updateApp,
     allUsers, saveAllUsers,
     downloadedApps, saveDownloadedApps,
     purchaseLibrary, savePurchaseLibrary,
+    updatedApps, saveUpdatedApps,
     userBalance, saveUserBalance,
     currentUser, saveCurrentUser,
     globalSettings, saveGlobalSettings

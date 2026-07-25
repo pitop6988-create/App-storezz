@@ -45,6 +45,8 @@ export interface AppEntry {
   downloads?: string;
   creatorAppleId?: string;
   videoUrl?: string;
+  hasUpdate?: boolean;
+  updateId?: number;
 }
 
 export interface AppStoreState {

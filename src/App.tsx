@@ -3,7 +3,7 @@ import { Scanner } from "@yudiel/react-qr-scanner";
 import { QrCode } from "lucide-react";
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Search, Rocket, Layers, Layout, Gamepad2, Smartphone, LayoutGrid, User, Plus, Trash2, Edit2, Lock, Unlock, Download, Check, AlertCircle, ChevronLeft, Star, Share, ExternalLink, Image as ImageIcon, File, UploadCloud, X , ChevronRight, Mic, CloudDownload, Fingerprint, Video, Play } from 'lucide-react';
+import { Search, Rocket, Layers, Layout, Gamepad2, Smartphone, Tablet, LayoutGrid, User, Plus, Trash2, Edit2, Lock, Unlock, Download, Check, AlertCircle, ChevronLeft, Star, Share, ExternalLink, Image as ImageIcon, File, UploadCloud, X , ChevronRight, Mic, CloudDownload, Fingerprint, Video, Play } from 'lucide-react';
 import { AppEntry, AppCategory, UserEntry } from './types';
 import { useStore } from './hooks/useStore';
 
@@ -16,10 +16,11 @@ const toBase64 = (file: File) => new Promise<string>((resolve, reject) => {
 
 export default function App() {
   const {
-    apps, saveApps,
+    apps, saveApps, updateApp,
     allUsers, saveAllUsers,
     downloadedApps, saveDownloadedApps,
     purchaseLibrary, savePurchaseLibrary,
+    updatedApps, saveUpdatedApps,
     userBalance, saveUserBalance,
     currentUser, saveCurrentUser,
     globalSettings, saveGlobalSettings
@@ -37,7 +38,15 @@ export default function App() {
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [downloadProgress, setDownloadProgress] = useState<number>(0);
 
-    const handleDownload = (app: AppEntry, e?: React.MouseEvent) => {
+  const appHasUpdate = (app: AppEntry) => {
+    if (!app.hasUpdate) return false;
+    if (app.updateId) {
+      return (updatedApps[app.id] || 0) < app.updateId;
+    }
+    return updatedApps[app.id] !== -1;
+  };
+
+  const handleDownload = (app: AppEntry, e?: React.MouseEvent) => {
     e?.stopPropagation();
     if (!currentUser) {
       alert("Please sign in to download apps.");
@@ -46,6 +55,10 @@ export default function App() {
     }
 
     if (downloadedApps.has(app.id)) {
+      if (appHasUpdate(app)) {
+        processDownload(app);
+        return;
+      }
       if (app.externalLink || app.downloadUrl || app.apkUrl || app.iosUrl) {
         const link = app.externalLink || app.downloadUrl || app.apkUrl || app.iosUrl;
         window.open(link, '_blank');
@@ -96,10 +109,41 @@ export default function App() {
         const newDownloaded = new Set<string>(downloadedApps);
         newDownloaded.add(app.id);
         saveDownloadedApps(newDownloaded);
+        
+        // Update downloads count
+        const currentCountStr = app.downloads || '0';
+        let currentCount = 0;
+        if (currentCountStr.includes('K')) {
+            currentCount = parseFloat(currentCountStr) * 1000;
+        } else if (currentCountStr.includes('M')) {
+            currentCount = parseFloat(currentCountStr) * 1000000;
+        } else {
+            currentCount = parseInt(currentCountStr.replace(/,/g, '')) || 0;
+        }
+        
+        updateApp({ ...app, downloads: (currentCount + 1).toLocaleString() });
+        
+        if (app.hasUpdate && (!app.updateId ? updatedApps?.[app.id] !== -1 : (updatedApps?.[app.id] || 0) < app.updateId)) {
+           const newUpdatedApps = { ...updatedApps };
+           newUpdatedApps[app.id] = app.updateId || -1;
+           saveUpdatedApps(newUpdatedApps);
+        }
+
         setDownloadingId(null);
         setDownloadProgress(0);
       }
     }, intervalTime);
+  };
+
+  const handleUpdateAll = () => {
+    const appsToUpdate = apps.filter((a: AppEntry) => downloadedApps.has(a.id) && a.hasUpdate && (!a.updateId ? updatedApps?.[a.id] !== -1 : (updatedApps?.[a.id] || 0) < a.updateId));
+    if (appsToUpdate.length === 0) return;
+    
+    const newUpdatedApps = { ...updatedApps };
+    appsToUpdate.forEach((app: AppEntry) => {
+      newUpdatedApps[app.id] = app.updateId || -1;
+    });
+    saveUpdatedApps(newUpdatedApps);
   };
 
   const renderContent = () => {
@@ -116,6 +160,7 @@ export default function App() {
             onDownload={handleDownload}
             downloadingId={downloadingId} downloadProgress={downloadProgress}
             downloadedApps={downloadedApps}
+            updatedApps={updatedApps}
             purchaseLibrary={purchaseLibrary}
             onAppClick={(app) => setViewingApp(app)}
             onAccountClick={() => setShowAccountModal(true)}
@@ -174,7 +219,7 @@ export default function App() {
         {/* Bottom Nav */}
         <div className="absolute bottom-6 inset-x-0 flex justify-center px-4 z-40 pointer-events-none">
           <div className="flex gap-4 items-center pointer-events-auto">
-             <div className="bg-white/95 backdrop-blur-2xl shadow-xl shadow-black/10 border border-gray-100 rounded-full flex px-1 py-1 h-[68px] max-w-[calc(100vw-110px)] overflow-x-auto no-scrollbar">
+             <div className="bg-white/10 backdrop-blur-[40px] shadow-[0_8px_32px_rgba(31,38,135,0.15)] border border-white/40 ring-1 ring-white/20 rounded-full flex px-1 py-1 h-[68px] max-w-[calc(100vw-110px)] overflow-x-auto no-scrollbar">
                 {!isAdminAuthenticated ? (
                   <>
                     <NavItem icon={Layout} label="Today" active={activeTab === 'Today'} onClick={() => setActiveTab('Today')} />
@@ -193,7 +238,7 @@ export default function App() {
                   </>
                 )}
              </div>
-             <button onClick={() => setActiveTab('Search')} className={`w-[68px] h-[68px] bg-white/95 backdrop-blur-2xl shadow-xl shadow-black/10 border border-gray-100 rounded-full flex items-center justify-center transition-colors ${activeTab === 'Search' ? 'bg-gray-100' : ''}`}>
+             <button onClick={() => setActiveTab('Search')} className={`w-[68px] h-[68px] bg-white/10 backdrop-blur-[40px] shadow-[0_8px_32px_rgba(31,38,135,0.15)] border border-white/40 ring-1 ring-white/20 rounded-full flex items-center justify-center transition-colors ${activeTab === 'Search' ? 'bg-white/30' : ''}`}>
                 <Search size={32} strokeWidth={2.5} className={activeTab === 'Search' ? "text-blue-500" : "text-gray-900"} />
              </button>
           </div>
@@ -202,8 +247,13 @@ export default function App() {
         {/* Account Modal */}
         <AnimatePresence>
           {showAccountModal && (
-            <AccountModal apps={apps} downloadedApps={downloadedApps} onDownload={handleDownload} downloadingId={downloadingId} downloadProgress={downloadProgress} purchaseLibrary={purchaseLibrary} 
+            <AccountModal apps={apps} downloadedApps={downloadedApps}
+            updatedApps={updatedApps} onDownload={handleDownload} onUpdateAll={handleUpdateAll} downloadingId={downloadingId} downloadProgress={downloadProgress} purchaseLibrary={purchaseLibrary} 
               onClose={() => setShowAccountModal(false)}
+              onAppClick={(app: AppEntry) => {
+                setViewingApp(app);
+                setShowAccountModal(false);
+              }}
               currentUser={currentUser}
               saveCurrentUser={saveCurrentUser}
               allUsers={allUsers}
@@ -241,7 +291,8 @@ export default function App() {
                         <p className="font-bold text-gray-900 truncate">{app.name}</p>
                         <p className="text-xs text-gray-500 truncate">{app.subtitle}</p>
                       </div>
-                      <DownloadButton app={app} onDownload={handleDownload} downloadingId={downloadingId} downloadProgress={downloadProgress} downloadedApps={downloadedApps} purchaseLibrary={purchaseLibrary} />
+                      <DownloadButton app={app} onDownload={handleDownload} downloadingId={downloadingId} downloadProgress={downloadProgress} downloadedApps={downloadedApps}
+            updatedApps={updatedApps} purchaseLibrary={purchaseLibrary} />
                     </div>
                   ))}
                 </div>
@@ -349,6 +400,7 @@ export default function App() {
               onDownload={handleDownload}
               downloadingId={downloadingId} downloadProgress={downloadProgress}
               downloadedApps={downloadedApps}
+            updatedApps={updatedApps}
               purchaseLibrary={purchaseLibrary}
             />
           )}
@@ -368,15 +420,33 @@ function NavItem({ icon: Icon, label, active, onClick }: any) {
   );
 }
 
-function DownloadButton({ app, onDownload, downloadingId, downloadProgress, downloadedApps, purchaseLibrary }: any) {
+function DownloadButton({ app, onDownload, downloadingId, downloadProgress, downloadedApps, purchaseLibrary, updatedApps, customClass }: any) {
   const isDownloaded = downloadedApps.has(app.id);
   const isPurchased = purchaseLibrary.has(app.id);
   const isFree = !app.price || app.price === 'Free';
   const isDownloading = downloadingId === app.id;
+  
+  let hasUpdate = false;
+  if (app.hasUpdate) {
+    if (app.updateId) {
+      hasUpdate = (updatedApps?.[app.id] || 0) < app.updateId;
+    } else {
+      hasUpdate = updatedApps?.[app.id] !== -1;
+    }
+  }
 
   let buttonText = isFree ? 'GET' : app.price;
+  let buttonStyle = "bg-gray-100 hover:bg-gray-200 text-blue-600";
+  
   if (isPurchased) buttonText = 'DOWNLOAD';
-  if (isDownloaded) buttonText = 'OPEN';
+  if (isDownloaded) {
+    if (hasUpdate) {
+      buttonText = 'UPDATE';
+      buttonStyle = "bg-blue-500 hover:bg-blue-600 text-white";
+    } else {
+      buttonText = 'OPEN';
+    }
+  }
 
   if (isDownloading) {
     const sizeInMB = parseFloat((app.size || "100 MB").replace(/[^\d.]/g, '')) || 100;
@@ -405,14 +475,14 @@ function DownloadButton({ app, onDownload, downloadingId, downloadProgress, down
   return (
     <button 
       onClick={(e) => onDownload(app, e)}
-      className="px-5 py-1.5 bg-gray-100 hover:bg-gray-200 active:scale-95 transition-all text-blue-600 font-bold text-[13px] rounded-full uppercase tracking-wide"
+      className={customClass || `px-5 py-1.5 active:scale-95 transition-all font-bold text-[13px] rounded-full uppercase tracking-wide ${buttonStyle}`}
     >
       {buttonText}
     </button>
   );
 }
 
-function StoreFront({ apps, tab, onDownload, downloadingId, downloadProgress, downloadedApps, purchaseLibrary, onAppClick, onAccountClick, currentUser }: any) {
+function StoreFront({ apps, tab, onDownload, downloadingId, downloadProgress, downloadedApps, purchaseLibrary, onAppClick, onAccountClick, currentUser, updatedApps }: any) {
   const [searchQuery, setSearchQuery] = useState('');
 
   let displayApps = apps;
@@ -423,7 +493,11 @@ function StoreFront({ apps, tab, onDownload, downloadingId, downloadProgress, do
     displayApps = arcadeOnly.length > 0 ? arcadeOnly : apps.filter((a: AppEntry) => a.category === 'Game' || a.category === 'Arcade');
   }
   if (tab === 'Search') {
-    displayApps = apps.filter((a: AppEntry) => a.name.toLowerCase().includes(searchQuery.toLowerCase()) || a.developer?.toLowerCase().includes(searchQuery.toLowerCase()));
+    if (searchQuery.trim() === '') {
+      displayApps = apps.filter((a: AppEntry) => a.category !== 'App' && a.category !== 'Game');
+    } else {
+      displayApps = apps.filter((a: AppEntry) => a.category !== 'App' && a.category !== 'Game' && (a.name.toLowerCase().includes(searchQuery.toLowerCase()) || a.developer?.toLowerCase().includes(searchQuery.toLowerCase())));
+    }
   }
 
   const todayStr = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
@@ -473,7 +547,8 @@ function StoreFront({ apps, tab, onDownload, downloadingId, downloadProgress, do
                <p className="text-white font-bold text-sm line-clamp-1">{app.name}</p>
                <p className="text-white/70 text-xs line-clamp-1">{app.subtitle}</p>
              </div>
-             <DownloadButton app={app} onDownload={onDownload} downloadingId={downloadingId} downloadProgress={downloadProgress} downloadedApps={downloadedApps} purchaseLibrary={purchaseLibrary} />
+             <DownloadButton app={app} onDownload={onDownload} downloadingId={downloadingId} downloadProgress={downloadProgress} downloadedApps={downloadedApps}
+            updatedApps={updatedApps} purchaseLibrary={purchaseLibrary} />
            </div>
         </div>
       ))}
@@ -486,7 +561,8 @@ function StoreFront({ apps, tab, onDownload, downloadingId, downloadProgress, do
               <h3 className="font-bold text-gray-900 truncate text-[15px]">{app.name}</h3>
               <p className="text-[13px] text-gray-500 truncate">{app.subtitle}</p>
             </div>
-            <DownloadButton app={app} onDownload={onDownload} downloadingId={downloadingId} downloadProgress={downloadProgress} downloadedApps={downloadedApps} purchaseLibrary={purchaseLibrary} />
+            <DownloadButton app={app} onDownload={onDownload} downloadingId={downloadingId} downloadProgress={downloadProgress} downloadedApps={downloadedApps}
+            updatedApps={updatedApps} purchaseLibrary={purchaseLibrary} />
           </div>
         ))}
       </div>
@@ -494,7 +570,7 @@ function StoreFront({ apps, tab, onDownload, downloadingId, downloadProgress, do
   );
 }
 
-function AppDetails({ app, onClose, onDownload, downloadingId, downloadProgress, downloadedApps, purchaseLibrary, onDeveloperClick }: any) {
+function AppDetails({ app, onClose, onDownload, downloadingId, downloadProgress, downloadedApps, purchaseLibrary, onDeveloperClick, updatedApps }: any) {
   const [fullscreenScreenshot, setFullscreenScreenshot] = React.useState<string | null>(null);
   const [showVersionHistoryModal, setShowVersionHistoryModal] = React.useState(false);
   const [isWhatsNewExpanded, setIsWhatsNewExpanded] = React.useState(false);
@@ -568,50 +644,133 @@ function AppDetails({ app, onClose, onDownload, downloadingId, downloadProgress,
         )}
       </AnimatePresence>
 
-      <div className="absolute top-0 inset-x-0 h-16 bg-white/80 backdrop-blur-md z-10 flex items-center px-4 border-b border-gray-100">
-        <button onClick={onClose} className="flex items-center text-blue-500 font-medium">
-          <ChevronLeft size={24} className="-ml-1" />
-          Back
+      <div className="absolute top-0 inset-x-0 h-16 bg-white/90 backdrop-blur-md z-10 flex items-center justify-between px-5">
+        <button onClick={onClose} className="w-9 h-9 bg-gray-100 rounded-full flex items-center justify-center text-gray-900 active:scale-95 transition-transform">
+          <ChevronLeft size={22} className="-ml-0.5" strokeWidth={3} />
+        </button>
+        <button className="w-9 h-9 bg-gray-100 rounded-full flex items-center justify-center text-gray-900 active:scale-95 transition-transform">
+          <Share size={20} strokeWidth={2.5} />
         </button>
       </div>
 
       <div className="flex-1 overflow-y-auto pt-20 pb-24 px-5">
-        <div className="flex gap-4 mb-6">
-          <img src={app.iconUrl} alt={app.name} className="w-28 h-28 rounded-[1.75rem] shadow-md border border-gray-100 object-cover" />
-          <div className="flex-1 flex flex-col justify-between py-1">
+        <div className="flex gap-5 mb-6">
+          <img src={app.iconUrl} alt={app.name} className="w-[116px] h-[116px] rounded-[24px] shadow-sm border border-gray-100 object-cover shrink-0" />
+          <div className="flex-1 flex flex-col justify-between py-0.5 min-w-0">
             <div>
-              <h1 className="text-xl font-bold leading-tight text-gray-900">{app.name}</h1>
-              <h2 className="text-sm text-gray-500 mt-0.5">{app.subtitle}</h2>
-              <p onClick={() => onDeveloperClick && onDeveloperClick(app.developer)} className="text-xs text-blue-500 font-medium mt-1 cursor-pointer">{app.developer}</p>
+              <h1 className="text-[22px] font-extrabold leading-tight text-gray-900 tracking-tight truncate">{app.name}</h1>
+              <h2 className="text-[15px] font-medium text-gray-500 mt-1 leading-snug line-clamp-2">{app.subtitle}</h2>
+              {app.category && <p className="text-[15px] text-gray-400 font-medium leading-snug mt-0.5">{app.category} Game</p>}
             </div>
-            <div className="flex items-center justify-between mt-4">
-               <DownloadButton app={app} onDownload={onDownload} downloadingId={downloadingId} downloadProgress={downloadProgress} downloadedApps={downloadedApps} purchaseLibrary={purchaseLibrary} />
-               <button className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center text-blue-500"><Share size={16} /></button>
+            <div className="flex items-center gap-3 mt-3">
+               <DownloadButton app={app} onDownload={onDownload} downloadingId={downloadingId} downloadProgress={downloadProgress} downloadedApps={downloadedApps}
+            updatedApps={updatedApps} purchaseLibrary={purchaseLibrary} customClass="w-20 py-1 text-[15px] bg-blue-500 text-white hover:bg-blue-600 rounded-full font-bold active:scale-95 transition-transform" />
+               <p className="text-[9px] text-gray-400 font-medium leading-tight">In-App<br/>Purchases</p>
             </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-8 py-4 border-y border-gray-100 overflow-x-auto no-scrollbar mb-6">
+        <div className="flex items-center gap-6 py-4 border-y border-gray-100 overflow-x-auto no-scrollbar mb-6 -mx-5 px-5">
            <div className="flex flex-col items-center flex-shrink-0">
-             <p className="text-[10px] text-gray-500 font-bold uppercase">Rating</p>
-             <p className="text-xl font-bold text-gray-600 mt-1">{app.rating || '4.5'}</p>
-             <div className="flex text-gray-400 mt-0.5"><Star className="fill-current" size={12} /></div>
+             <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">{app.reviewsCount || '100K'} RATINGS</p>
+             <p className="text-[22px] font-black text-gray-500 mt-1">{app.rating || '4.5'}</p>
+             <div className="flex text-gray-300 mt-0.5">
+               {[1,2,3,4,5].map(star => (
+                 <Star key={star} className="fill-current" size={14} />
+               ))}
+             </div>
            </div>
-           <div className="w-px h-8 bg-gray-200"></div>
+           <div className="w-px h-10 bg-gray-200"></div>
            <div className="flex flex-col items-center flex-shrink-0">
-             <p className="text-[10px] text-gray-500 font-bold uppercase">Developer</p>
-             <User size={20} className="text-gray-400 mt-1.5" />
-             <p className="text-[11px] text-gray-500 mt-1">{app.developer || 'Developer'}</p>
+             <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Awards</p>
+             <p className="text-[22px] font-black text-gray-500 mt-1 flex items-center gap-1">
+               <Star size={16} className="text-gray-400" />
+               Editors' Choice
+             </p>
+             <p className="text-[11px] text-gray-400 mt-0.5 font-medium">Apps</p>
            </div>
-           <div className="w-px h-8 bg-gray-200"></div>
+           <div className="w-px h-10 bg-gray-200"></div>
            <div className="flex flex-col items-center flex-shrink-0">
-             <p className="text-[10px] text-gray-500 font-bold uppercase">Size</p>
-             <p className="text-xl font-bold text-gray-600 mt-1">{app.size || '100 MB'}</p>
+             <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Age Rating</p>
+             <p className="text-[22px] font-black text-gray-500 mt-1">{app.ageRating || '4+'}</p>
+             <p className="text-[11px] text-gray-400 mt-0.5 font-medium">In-App Controls</p>
+           </div>
+           <div className="w-px h-10 bg-gray-200"></div>
+           <div className="flex flex-col items-center flex-shrink-0">
+             <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Category</p>
+             <p className="text-[22px] font-black text-gray-500 mt-1">#1</p>
+             <p className="text-[11px] text-gray-400 mt-0.5 font-medium">{app.category || 'App'}</p>
            </div>
         </div>
 
+        {/* Screenshots & Video */}
+        <div className="mb-6 -mx-5 px-5">
+          <div className="flex gap-3 overflow-x-auto no-scrollbar snap-x snap-mandatory pb-4">
+            {app.videoUrl && (
+              <div className="relative w-[280px] h-[158px] shrink-0 snap-center rounded-2xl overflow-hidden border border-gray-100 shadow-sm bg-black group">
+                <video src={app.videoUrl} className="w-full h-full object-cover opacity-80" />
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <div className="w-14 h-14 bg-black/40 backdrop-blur-sm rounded-full flex items-center justify-center">
+                    <Play className="text-white fill-current ml-1" size={28} />
+                  </div>
+                </div>
+              </div>
+            )}
+            {app.screenshots && app.screenshots.map((s: string, i: number) => (
+              <img key={i} src={s} alt={`Screenshot ${i + 1}`} onClick={() => setFullscreenScreenshot(s)} className={`h-[250px] ${app.screenshots.length > 1 && !app.videoUrl ? 'w-[140px]' : 'w-auto'} object-cover rounded-2xl border border-gray-100 snap-center shadow-sm shrink-0 bg-gray-100 cursor-pointer hover:opacity-95 transition-opacity`} />
+            ))}
+          </div>
+        </div>
+
+        {/* Device Support */}
+        <div className="flex items-center justify-between py-4 border-b border-gray-100 mb-6">
+           <div className="flex items-center gap-3 text-gray-400">
+             <div className="flex items-center gap-1">
+               <Smartphone size={22} strokeWidth={1.5} />
+               <Tablet size={24} strokeWidth={1.5} />
+             </div>
+             <span className="font-semibold text-[15px] text-gray-500">iPhone, iPad</span>
+           </div>
+           <ChevronRight size={20} className="text-gray-400 rotate-90" />
+        </div>
+
+        {/* Description */}
+        <div className="mb-8 relative">
+          <p className={`text-[15px] leading-relaxed text-gray-900 whitespace-pre-wrap font-medium ${!isDescriptionExpanded ? 'line-clamp-3' : ''}`}>
+            {app.description || 'No description available.'}
+          </p>
+          {!isDescriptionExpanded && (app.description?.length || 0) > 120 && (
+            <span className="absolute bottom-0 right-0 bg-white/90 backdrop-blur-sm pl-4 pr-1">
+              <button 
+                onClick={() => setIsDescriptionExpanded(true)}
+                className="text-blue-500 font-bold text-[15px] hover:underline focus:outline-none"
+              >
+                more
+              </button>
+            </span>
+          )}
+        </div>
+
+        {/* Tags */}
+        <div className="flex flex-wrap gap-2.5 mb-10">
+           {['Entertainment', 'Clans', 'Fantasy', 'Leaderboard', 'Orcs', 'Multiplayer'].map((tag, idx) => (
+             <span key={idx} className="px-4 py-2 bg-gray-50 text-gray-900 font-bold text-[15px] rounded-2xl">
+               {tag}
+             </span>
+           ))}
+        </div>
+
+        {/* Developer */}
+        <div className="flex justify-between items-center py-4 border-t border-gray-100">
+           <div className="flex flex-col">
+             <span className="text-blue-500 font-medium text-[17px] cursor-pointer" onClick={() => onDeveloperClick && onDeveloperClick(app.developer || 'Unknown')}>{app.developer || 'Supercell'}</span>
+             <span className="text-gray-500 text-[13px]">Developer</span>
+           </div>
+           <ChevronRight size={20} className="text-gray-300" />
+        </div>
+
         {/* What's New Section with Version History & More */}
-        <div className="mb-6 pb-6 border-b border-gray-100">
+        <div className="mb-6 pt-6 border-t border-gray-100">
           <div className="flex justify-between items-baseline mb-2">
             <h3 className="font-bold text-xl text-gray-900 tracking-tight">What's New</h3>
             <button 
@@ -621,65 +780,25 @@ function AppDetails({ app, onClose, onDownload, downloadingId, downloadProgress,
               Version History <ChevronRight size={16} />
             </button>
           </div>
-          <div className="flex justify-between items-baseline mb-2">
+          <div className="flex justify-between items-baseline mb-3">
             <span className="text-xs text-gray-400 font-medium">Version {latestVersion?.version || app.version || '1.0.0'}</span>
             <span className="text-xs text-gray-400 font-medium">{latestVersion?.date || app.versionDate || '1w ago'}</span>
           </div>
           <div className="relative">
-            <p className={`text-sm leading-relaxed text-gray-800 ${!isWhatsNewExpanded ? 'line-clamp-2' : ''}`}>
+            <p className={`text-[15px] leading-relaxed text-gray-800 ${!isWhatsNewExpanded ? 'line-clamp-2' : ''} whitespace-pre-wrap`}>
               {whatsNewNotes}
             </p>
-            {!isWhatsNewExpanded && whatsNewNotes.length > 50 && (
-              <button 
-                onClick={() => setIsWhatsNewExpanded(true)}
-                className="text-blue-500 font-semibold text-xs mt-1 hover:underline focus:outline-none"
-              >
-                more
-              </button>
+            {!isWhatsNewExpanded && whatsNewNotes.length > 80 && (
+              <span className="absolute bottom-0 right-0 bg-white/90 backdrop-blur-sm pl-4 pr-1">
+                <button 
+                  onClick={() => setIsWhatsNewExpanded(true)}
+                  className="text-blue-500 font-medium text-[15px] hover:underline focus:outline-none"
+                >
+                  more
+                </button>
+              </span>
             )}
           </div>
-        </div>
-
-        {/* Video Preview */}
-        {app.videoUrl && (
-          <div className="mb-8">
-            <h3 className="font-bold text-lg text-gray-900 tracking-tight mb-3 flex items-center gap-2">
-              <Video size={18} className="text-purple-600" /> Preview Video
-            </h3>
-            <div className="rounded-2xl overflow-hidden bg-black shadow-md border border-gray-100 relative group">
-              <video 
-                src={app.videoUrl} 
-                controls 
-                playsInline 
-                className="w-full max-h-[320px] object-contain mx-auto" 
-              />
-            </div>
-          </div>
-        )}
-
-        {app.screenshots && app.screenshots.length > 0 && (
-          <div className="mb-8">
-            <h3 className="font-bold text-lg text-gray-900 tracking-tight mb-3">Screenshots</h3>
-            <div className="flex gap-3 overflow-x-auto no-scrollbar snap-x snap-mandatory pb-4 -mx-5 px-5">
-              {app.screenshots.map((s: string, i: number) => (
-                <img key={i} src={s} alt={`Screenshot ${i + 1}`} onClick={() => setFullscreenScreenshot(s)} className="w-[200px] h-[350px] object-cover rounded-2xl border border-gray-100 snap-center shadow-sm shrink-0 bg-gray-100 cursor-pointer hover:opacity-95 transition-opacity" />
-              ))}
-            </div>
-          </div>
-        )}
-
-        <div className="mb-8 relative">
-          <p className={`text-[15px] leading-relaxed text-gray-700 whitespace-pre-wrap ${!isDescriptionExpanded ? 'line-clamp-3' : ''}`}>
-            {app.description || 'No description available.'}
-          </p>
-          {!isDescriptionExpanded && (app.description?.length || 0) > 120 && (
-            <button 
-              onClick={() => setIsDescriptionExpanded(true)}
-              className="text-blue-500 font-semibold text-sm mt-1.5 hover:underline focus:outline-none"
-            >
-              more
-            </button>
-          )}
         </div>
 
         <div className="space-y-3 pt-6 border-t border-gray-100">
@@ -712,7 +831,7 @@ function AppDetails({ app, onClose, onDownload, downloadingId, downloadProgress,
 
 // ---- Modals & Admin Below ----
 
-function AccountModal({ onClose, currentUser, saveCurrentUser, allUsers, balance, saveBalance, apps, downloadedApps, onDownload, downloadingId, downloadProgress, purchaseLibrary, globalSettings, saveGlobalSettings, isAdminAuthenticated, setIsAdminAuthenticated, setActiveTab }: any) {
+function AccountModal({ onClose, onAppClick, currentUser, saveCurrentUser, allUsers, balance, saveBalance, apps, downloadedApps, updatedApps, onDownload, onUpdateAll, downloadingId, downloadProgress, purchaseLibrary, globalSettings, saveGlobalSettings, isAdminAuthenticated, setIsAdminAuthenticated, setActiveTab }: any) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [addBalancePassword, setAddBalancePassword] = useState('');
@@ -723,6 +842,39 @@ function AccountModal({ onClose, currentUser, saveCurrentUser, allUsers, balance
   const [searchQuery, setSearchQuery] = useState('');
   const [adminPasswordInput, setAdminPasswordInput] = useState('');
   const [showAdminUnlock, setShowAdminUnlock] = useState(false);
+  const [isRedeemingCode, setIsRedeemingCode] = useState(false);
+  const [redeemCodeInput, setRedeemCodeInput] = useState('');
+
+  const handleRedeemSubmit = () => {
+    if (!redeemCodeInput.trim()) return;
+    let addedAmount = 0;
+    let matchedCodeObj = globalSettings?.moneyCodes?.find((c: any) => c.code === redeemCodeInput || c === redeemCodeInput);
+    
+    if (redeemCodeInput === globalSettings?.moneyCode) {
+      addedAmount = 50;
+    } else if (matchedCodeObj) {
+      addedAmount = matchedCodeObj.amount || 50;
+      const newCodes = globalSettings.moneyCodes.filter((c: any) => c !== matchedCodeObj);
+      saveGlobalSettings({ ...globalSettings, moneyCodes: newCodes });
+    }
+
+    if (addedAmount > 0) {
+      saveBalance(balance + addedAmount);
+      setRedeemCodeInput('');
+      setIsRedeemingCode(false);
+      alert(`Successfully added $${addedAmount} to your balance!`);
+    } else {
+      alert('Invalid Code');
+    }
+  };
+
+  const appHasUpdate = (app: AppEntry) => {
+    if (!app.hasUpdate) return false;
+    if (app.updateId) {
+      return (updatedApps?.[app.id] || 0) < app.updateId;
+    }
+    return updatedApps?.[app.id] !== -1;
+  };
 
   const handleAdminUnlock = (e: React.FormEvent) => {
     e.preventDefault();
@@ -772,36 +924,53 @@ function AccountModal({ onClose, currentUser, saveCurrentUser, allUsers, balance
   const myApps = apps.filter((a: any) => appTab === 'All' ? (downloadedApps.has(a.id) || purchaseLibrary.has(a.id)) : (purchaseLibrary.has(a.id) && !downloadedApps.has(a.id)));
   const filteredApps = myApps.filter((a: any) => a.name.toLowerCase().includes(searchQuery.toLowerCase()));
 
-  if (isScanningCode) {
+  if (isRedeemingCode) {
     return (
       <motion.div 
         initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
         transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-        className="absolute inset-0 bg-white z-[100] flex flex-col"
+        className="absolute inset-0 bg-[#1C1C1E] z-[100] flex flex-col text-white"
       >
-        <div className="pt-12 pb-4 px-4 flex justify-between items-center bg-white border-b border-gray-100">
-          <div className="w-8"></div>
-          <h2 className="font-bold text-[17px]">Scan Code</h2>
-          <button onClick={() => setIsScanningCode(false)} className="w-8 h-8 bg-gray-200/80 rounded-full flex items-center justify-center">
-            <X size={18} className="text-gray-500" />
+        <div className="pt-12 pb-4 px-4 flex justify-between items-center">
+          <button onClick={() => setIsRedeemingCode(false)} className="w-9 h-9 bg-[#2C2C2E] hover:bg-[#3C3C3E] rounded-full flex items-center justify-center transition-colors">
+            <ChevronLeft size={22} className="text-white -ml-0.5" strokeWidth={2.5} />
+          </button>
+          <button onClick={() => setIsRedeemingCode(false)} className="w-9 h-9 bg-[#2C2C2E] hover:bg-[#3C3C3E] rounded-full flex items-center justify-center transition-colors">
+            <X size={20} className="text-white" strokeWidth={2.5} />
           </button>
         </div>
         
-        <div className="flex-1 bg-black relative flex items-center justify-center overflow-hidden">
-           <Scanner
-              onScan={(result) => {
-                if (result && result.length > 0) {
-                  setAddBalancePassword(result[0].rawValue);
-                  setIsScanningCode(false);
-                }
-              }}
-              onError={(error) => {
-                console.error(error);
-              }}
-           />
-        </div>
-        <div className="p-6 text-center bg-white">
-          <p className="text-sm text-gray-500 font-medium">Position the QR code within the frame to scan.</p>
+        <div className="flex-1 px-6 pt-6 flex flex-col">
+          <h2 className="text-[28px] font-bold text-white leading-tight mb-2">Redeem with Code</h2>
+          <p className="text-[17px] text-[#8E8E93] leading-snug mb-8">
+            Enter the Apple Gift Card code or an offer code, or use your camera to scan the gift card.
+          </p>
+
+          <div className="bg-[#2C2C2E] rounded-xl px-4 py-3 mb-auto">
+             <input 
+               type="text" 
+               placeholder="Code"
+               value={redeemCodeInput}
+               onChange={(e) => setRedeemCodeInput(e.target.value)}
+               className="w-full bg-transparent outline-none text-white text-[17px] placeholder-[#8E8E93]"
+             />
+          </div>
+
+          <div className="pb-8 space-y-3">
+             <button 
+               onClick={handleRedeemSubmit} 
+               disabled={!redeemCodeInput.trim()}
+               className={`w-full py-4 rounded-[20px] font-bold text-[17px] transition-colors border ${redeemCodeInput.trim() ? 'bg-[#2C2C2E] border-[#38383A] text-white hover:bg-[#3C3C3E]' : 'bg-transparent border-[#38383A] text-[#545456]'}`}
+             >
+               Redeem
+             </button>
+             <button onClick={() => {
+                 setIsRedeemingCode(false);
+                 setIsScanningCode(true);
+             }} className="w-full py-4 bg-transparent border border-[#38383A] text-white hover:bg-[#2C2C2E] rounded-[20px] font-bold text-[17px] transition-colors">
+               Use Camera
+             </button>
+          </div>
         </div>
       </motion.div>
     );
@@ -826,8 +995,9 @@ function AccountModal({ onClose, currentUser, saveCurrentUser, allUsers, balance
            <Scanner
               onScan={(result) => {
                 if (result && result.length > 0) {
-                  setAddBalancePassword(result[0].rawValue);
+                  setRedeemCodeInput(result[0].rawValue);
                   setIsScanningCode(false);
+                  setIsRedeemingCode(true);
                 }
               }}
               onError={(error) => {
@@ -841,6 +1011,7 @@ function AccountModal({ onClose, currentUser, saveCurrentUser, allUsers, balance
       </motion.div>
     );
   }
+
 
   if (showApps) {
     return (
@@ -882,7 +1053,7 @@ function AccountModal({ onClose, currentUser, saveCurrentUser, allUsers, balance
 
         <div className="flex-1 overflow-y-auto bg-white">
            {filteredApps.map((app: any) => (
-              <div key={app.id} className="flex items-center gap-4 py-3 px-4 border-b border-gray-100 last:border-0 hover:bg-gray-50">
+              <div key={app.id} onClick={() => onAppClick && onAppClick(app)} className="flex items-center gap-4 py-3 px-4 border-b border-gray-100 last:border-0 hover:bg-gray-50 cursor-pointer">
                  <img src={app.iconUrl} className="w-[60px] h-[60px] rounded-[14px] border border-gray-200/50 object-cover shadow-sm" />
                  <div className="flex-1 min-w-0">
                    <h3 className="font-bold text-[15px] text-gray-900 truncate">{app.name}</h3>
@@ -894,9 +1065,11 @@ function AccountModal({ onClose, currentUser, saveCurrentUser, allUsers, balance
                        <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
                      </div>
                    ) : downloadedApps.has(app.id) ? (
-                     <button onClick={() => onDownload(app)} className="px-4 py-1.5 bg-gray-100 text-blue-600 font-bold text-[13px] rounded-full uppercase tracking-wide">Open</button>
+                     <button onClick={(e) => onDownload(app, e)} className={`px-4 py-1.5 font-bold text-[13px] rounded-full uppercase tracking-wide ${appHasUpdate(app) ? 'bg-blue-500 text-white hover:bg-blue-600' : 'bg-gray-100 text-blue-600 hover:bg-gray-200'}`}>
+                       {appHasUpdate(app) ? 'Update' : 'Open'}
+                     </button>
                    ) : (
-                     <button onClick={() => onDownload(app)} className="w-8 h-8 flex items-center justify-center text-blue-500 active:scale-95 transition-transform">
+                     <button onClick={(e) => onDownload(app, e)} className="w-8 h-8 flex items-center justify-center text-blue-500 active:scale-95 transition-transform">
                         <CloudDownload size={26} strokeWidth={2} />
                      </button>
                    )}
@@ -1011,6 +1184,7 @@ function AccountModal({ onClose, currentUser, saveCurrentUser, allUsers, balance
                   <div>
                     <h3 className="font-bold text-[17px] text-gray-900 leading-tight">{currentUser.name.toUpperCase()}</h3>
                     <p className="text-gray-500 text-[13px] mt-0.5">{currentUser.email}</p>
+                    <p className="text-blue-500 font-medium text-[13px] mt-0.5">Balance: ${balance.toFixed(2)}</p>
                   </div>
                </div>
                <div className="p-4 flex justify-between items-center bg-white hover:bg-gray-50 transition-colors cursor-pointer">
@@ -1118,28 +1292,12 @@ function AccountModal({ onClose, currentUser, saveCurrentUser, allUsers, balance
 
             {/* List 2 - Add Funds */}
             <div className="bg-white rounded-2xl overflow-hidden shadow-sm text-[15px] font-medium">
-               <button className="w-full flex justify-between items-center p-4 border-b border-gray-100 text-blue-500 hover:bg-gray-50 text-left">
+               <button onClick={() => setIsRedeemingCode(true)} className="w-full flex justify-between items-center p-4 border-b border-gray-100 text-blue-500 hover:bg-gray-50 text-left">
                   Redeem Gift Card or Code
                </button>
-               <button className="w-full flex justify-between items-center p-4 border-b border-gray-100 text-blue-500 hover:bg-gray-50 text-left">
+               <button className="w-full flex justify-between items-center p-4 text-blue-500 hover:bg-gray-50 text-left">
                   Send Gift Card by Email
                </button>
-               {addingFunds ? (
-                 <div className="p-4 bg-gray-50/50 flex gap-3">
-                   <input 
-                     type="password" 
-                     value={addBalancePassword} 
-                     onChange={e => setAddBalancePassword(e.target.value)} 
-                     placeholder="Enter Password" 
-                     className="flex-1 p-3 bg-white border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500/20 text-[15px]" 
-                   />
-                   <button onClick={handleAddFunds} className="px-5 bg-blue-500 hover:bg-blue-600 text-white rounded-xl font-bold text-[15px] transition-colors shadow-sm active:scale-95">Add $50</button>
-                 </div>
-               ) : (
-                 <button onClick={() => setAddingFunds(true)} className="w-full flex justify-between items-center p-4 text-blue-500 hover:bg-gray-50 text-left">
-                    Add Money to Account <span className="text-gray-400 font-normal text-[13px] px-2 py-0.5 bg-gray-100 rounded-md">Balance: ${balance.toFixed(2)}</span>
-                 </button>
-               )}
             </div>
 
             {/* List 3 */}
@@ -1149,6 +1307,36 @@ function AccountModal({ onClose, currentUser, saveCurrentUser, allUsers, balance
                   <ChevronRight size={20} className="text-gray-300" />
                </button>
             </div>
+
+            {/* Updates Section */}
+            {apps.filter((a: any) => downloadedApps.has(a.id) && appHasUpdate(a)).length > 0 && (
+              <div className="mt-8">
+                <div className="flex items-center justify-between px-2 mb-3">
+                  <h3 className="text-xl font-bold text-gray-900">Upcoming Automatic Updates</h3>
+                  <button onClick={onUpdateAll} className="text-[15px] font-semibold text-blue-500 hover:text-blue-600">Update All</button>
+                </div>
+                <div className="bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100">
+                  {apps.filter((a: any) => downloadedApps.has(a.id) && appHasUpdate(a)).map((app: any) => (
+                    <div key={app.id} onClick={() => onAppClick && onAppClick(app)} className="flex items-start gap-4 p-4 border-b border-gray-100 last:border-0 hover:bg-gray-50 cursor-pointer">
+                       <img src={app.iconUrl} className="w-[60px] h-[60px] rounded-[14px] border border-gray-200/50 object-cover shadow-sm mt-0.5" />
+                       <div className="flex-1 min-w-0">
+                         <div className="flex justify-between items-start mb-1">
+                           <div>
+                             <h4 className="font-bold text-[15px] text-gray-900 truncate leading-tight">{app.name}</h4>
+                             <p className="text-[13px] text-gray-500">{app.versionDate || '1d ago'}</p>
+                           </div>
+                           <button onClick={(e) => { e.stopPropagation(); onDownload(app); }} className="px-5 py-1.5 bg-blue-500 text-white hover:bg-blue-600 font-bold text-[13px] rounded-full uppercase tracking-wide">Update</button>
+                         </div>
+                         <div className="mt-2 text-[14px] text-gray-700 leading-snug line-clamp-2">
+                           <span className="font-semibold text-gray-900 mr-2">Version {app.version || '1.0.0'}</span>
+                           {app.whatsNew || (app.versionHistory && app.versionHistory.length > 0 ? app.versionHistory[0].notes : 'Bug fixes and performance improvements.')}
+                         </div>
+                       </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             
             {/* Sign Out */}
             <div className="bg-white rounded-2xl overflow-hidden shadow-sm text-[15px] font-medium mt-6 mb-8">
@@ -1299,6 +1487,11 @@ function AdminPage({ apps, saveApps, allUsers, saveAllUsers, isAuthenticated, se
                  <option value="Arcade">Arcade</option>
                </select>
             </div>
+            
+            <label className="flex items-center gap-2 cursor-pointer mt-1 mb-2">
+              <input type="checkbox" checked={!!appForm.hasUpdate} onChange={e => setAppForm({...appForm, hasUpdate: e.target.checked, updateId: e.target.checked ? Date.now() : undefined})} className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500" />
+              <span className="text-sm font-medium text-gray-700">App has an update available</span>
+            </label>
 
             <div className="pt-2 pb-1">
                <label className="text-xs font-bold text-gray-500 uppercase">App Icon (Image File)</label>
@@ -1430,7 +1623,8 @@ function AdminPage({ apps, saveApps, allUsers, saveAllUsers, isAuthenticated, se
                  <button 
                    onClick={() => {
                      const newVersions = [...(appForm.versionHistory || [])];
-                     newVersions.unshift({ version: '1.0.0', date: 'Just now', notes: 'Initial release' });
+                     const today = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                     newVersions.unshift({ version: '1.0.0', date: today, notes: 'Initial release' });
                      setAppForm({...appForm, versionHistory: newVersions});
                    }}
                    className="px-3 py-1 bg-blue-50 text-blue-600 rounded-full hover:bg-blue-100 transition-colors normal-case"
