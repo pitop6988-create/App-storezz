@@ -3,6 +3,7 @@ import {
   collection, 
   onSnapshot, 
   doc, 
+  getDoc,
   setDoc, 
   updateDoc, 
   deleteDoc,
@@ -179,6 +180,48 @@ export function useStore() {
     if (saved) setCurrentUser(JSON.parse(saved));
   }, []);
 
+  const transferBalanceToUser = async (targetAppleId: string, amount: number) => {
+    if (!currentUser) throw new Error("Please sign in to transfer balance.");
+    if (amount <= 0) throw new Error("Please enter a valid amount.");
+    if (userBalance < amount) throw new Error(`Insufficient balance. You have $${userBalance.toFixed(2)}.`);
+
+    const targetUser = allUsers.find(
+      u => u.email.toLowerCase() === targetAppleId.toLowerCase().trim() ||
+           u.id === targetAppleId.trim() ||
+           u.name.toLowerCase() === targetAppleId.toLowerCase().trim()
+    );
+
+    if (!targetUser) {
+      throw new Error(`User with Apple ID "${targetAppleId}" was not found.`);
+    }
+
+    if (targetUser.id === currentUser.id) {
+      throw new Error("You cannot send money to yourself.");
+    }
+
+    // Deduct from sender's balance in Firestore
+    const newSenderBalance = userBalance - amount;
+    setUserBalance(newSenderBalance);
+    await updateDoc(doc(db, 'users', currentUser.id, 'settings', 'default'), {
+      balance: newSenderBalance
+    });
+
+    // Credit to receiver's balance in Firestore
+    const targetRef = doc(db, 'users', targetUser.id, 'settings', 'default');
+    const targetSnap = await getDoc(targetRef);
+    let targetCurrentBalance = 0;
+    if (targetSnap.exists()) {
+      targetCurrentBalance = targetSnap.data().balance || 0;
+    }
+    const newTargetBalance = targetCurrentBalance + amount;
+    await setDoc(targetRef, { balance: newTargetBalance }, { merge: true });
+
+    return {
+      senderNewBalance: newSenderBalance,
+      targetUser
+    };
+  };
+
   return {
     apps, saveApps, updateApp,
     allUsers, saveAllUsers,
@@ -187,7 +230,8 @@ export function useStore() {
     updatedApps, saveUpdatedApps,
     userBalance, saveUserBalance,
     currentUser, saveCurrentUser,
-    globalSettings, saveGlobalSettings
+    globalSettings, saveGlobalSettings,
+    transferBalanceToUser
   };
 }
 
